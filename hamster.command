@@ -77,7 +77,15 @@ echo "$SCRIPT_PATH" > "$LOC_FILE"
 if [ -f "$PID_FILE" ]; then
     EXISTING_PID=$(cat "$PID_FILE" 2>/dev/null)
     if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null; then
-        # Bring existing instance to the front
+        if [[ "$*" == *"--headless"* ]] || [[ "$*" == *"--start"* ]]; then
+            echo "RUNNING" > "$HAMSTER_DIR/state.txt"
+            exit 0
+        fi
+        if [[ "$*" == *"--stop"* ]]; then
+            echo "STOPPED" > "$HAMSTER_DIR/state.txt"
+            exit 0
+        fi
+        # Bring existing instance to the front and reopen window
         osascript -e "
         tell application \"System Events\"
             set pList to (every process whose unix id is $EXISTING_PID)
@@ -86,6 +94,7 @@ if [ -f "$PID_FILE" ]; then
             end if
         end tell
         " 2>/dev/null || true
+        open "$SCRIPT_PATH" 2>/dev/null || true
         exit 0
     fi
 fi
@@ -231,6 +240,8 @@ function run(argv) {
         } catch (e) {}
     }
 
+    const defaultDisplayName = "Hamster " + hamsterId.replace("hamster-", "");
+    if (!config.displayName) config.displayName = config.name || defaultDisplayName;
     if (!config.homeFolder) config.homeFolder = defaultHome;
     if (!config.inputFolder) config.inputFolder = defaultInbox;
     if (!config.outputFolder) config.outputFolder = defaultOutbox;
@@ -300,7 +311,7 @@ function run(argv) {
     const styleMask = $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable | $.NSWindowStyleMaskMiniaturizable;
     const win = $.NSWindow.alloc.initWithContentRectStyleMaskBackingDefer(winRect, styleMask, $.NSBackingStoreBuffered, false);
 
-    win.setTitle("🐹 " + config.name + " (" + hamsterId + ")");
+    win.setTitle("🐹 " + config.displayName + " (" + hamsterId + ")");
     win.setReleasedWhenClosed(false);
     win.center;
 
@@ -334,6 +345,13 @@ function run(argv) {
         if (color) field.setTextColor(color);
     }
 
+    function setLeftText(field, text, color) {
+        field.setStringValue(text || "");
+        field.setAlignment($.NSTextAlignmentLeft);
+        if (field.cell) field.cell.setAlignment($.NSTextAlignmentLeft);
+        if (color) field.setTextColor(color);
+    }
+
     function createTextField(text, x, y, w, h, parent) {
         const tf = $.NSTextField.alloc.initWithFrame($.NSMakeRect(x, y, w, h));
         tf.setStringValue(text || "");
@@ -350,7 +368,7 @@ function run(argv) {
     }
 
     // Top Header Banner
-    createLabel("🐹 " + config.name, 20, winHeight - 36, 350, 22, true, 16, contentView, false);
+    const headerTitleLabel = createLabel("🐹 " + config.displayName, 20, winHeight - 36, 350, 22, true, 16, contentView, false);
     createLabel("ID: " + hamsterId, winWidth - 220, winHeight - 34, 200, 18, false, 11, contentView, false);
 
     // Tab View
@@ -358,7 +376,7 @@ function run(argv) {
     contentView.addSubview(tabView);
 
     // =========================================================================
-    // TAB 1: 🐹 Hamster Wheel (Clean, Uncluttered 3-Column Layout)
+    // TAB 1: 🐹 Hamster Wheel (Clean Row-Based Layout)
     // =========================================================================
     const tab1 = $.NSTabViewItem.alloc.init;
     tab1.label = "🐹 Hamster Wheel";
@@ -366,65 +384,102 @@ function run(argv) {
     tab1.view = wheelView;
     tabView.addTabViewItem(tab1);
 
-    const colW = 190;
-    const col1X = 15;
-    const col2X = 215;
-    const col3X = 415;
+    const rowW = 595;
+    const rowX = 15;
 
-    // --- Column 1: Inbox ---
-    createLabel("📥 Inbox", col1X, 400, colW, 26, true, 16, wheelView, true);
+    // --- Row 1: Inbox Row (Top) ---
+    const inboxBox = $.NSBox.alloc.initWithFrame($.NSMakeRect(rowX, 350, rowW, 95));
+    inboxBox.setBoxType($.NSBoxCustom);
+    inboxBox.setBorderType($.NSLineBorder);
+    inboxBox.setBorderWidth(1.0);
+    inboxBox.setBorderColor($.NSColor.separatorColor);
+    inboxBox.setCornerRadius(8.0);
+    inboxBox.setFillColor($.NSColor.controlBackgroundColor);
+    wheelView.addSubview(inboxBox);
 
-    const inputCountLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col1X, 280, colW, 80));
+    // Big Icon on Left of Large Number
+    createLabel("📥", 18, 16, 46, 60, false, 36, inboxBox, false);
+
+    const inputCountLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(68, 12, 115, 68));
     inputCountLabel.setBezeled(false);
     inputCountLabel.setDrawsBackground(false);
     inputCountLabel.setEditable(false);
     inputCountLabel.setSelectable(false);
-    inputCountLabel.setFont($.NSFont.boldSystemFontOfSize(64));
-    setCenterText(inputCountLabel, "0", $.NSColor.systemBlueColor);
-    wheelView.addSubview(inputCountLabel);
+    inputCountLabel.setFont($.NSFont.boldSystemFontOfSize(48));
+    setLeftText(inputCountLabel, "0", $.NSColor.systemBlueColor);
+    inboxBox.addSubview(inputCountLabel);
 
-    const btnWheelOpenInput = createButton("📂 Open Inbox", col1X + 20, 205, 150, 36, wheelView);
+    createLabel("Inbox", 195, 50, 220, 24, true, 16, inboxBox, false);
+    const inDesc = createLabel("Files waiting to be processed", 195, 26, 220, 18, false, 12, inboxBox, false);
+    inDesc.setTextColor($.NSColor.secondaryLabelColor);
 
-    // --- Column 2: Controls & Status ---
-    createLabel("⚙️ Controls", col2X, 400, colW, 26, true, 16, wheelView, true);
+    const btnWheelOpenInput = createButton("📂 Open Inbox", rowW - 155, 30, 135, 34, inboxBox);
 
-    const btnStartStop = createButton("▶ Start Hamster", col2X + 15, 335, 160, 44, wheelView);
+    // --- Row 2: Controls & Status (Middle) ---
+    const controlsBox = $.NSBox.alloc.initWithFrame($.NSMakeRect(rowX, 230, rowW, 105));
+    controlsBox.setBoxType($.NSBoxCustom);
+    controlsBox.setBorderType($.NSLineBorder);
+    controlsBox.setBorderWidth(1.0);
+    controlsBox.setBorderColor($.NSColor.separatorColor);
+    controlsBox.setCornerRadius(8.0);
+    controlsBox.setFillColor($.NSColor.controlBackgroundColor);
+    wheelView.addSubview(controlsBox);
+
+    const btnStartStop = createButton("▶ Start Hamster", 15, 30, 165, 46, controlsBox);
     btnStartStop.setFont($.NSFont.boldSystemFontOfSize(14));
 
-    const statusLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col2X, 285, colW, 24));
+    createLabel("Status:", 195, 58, 60, 20, true, 12, controlsBox, false);
+    const statusLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(195, 28, 220, 26));
     statusLabel.setBezeled(false);
     statusLabel.setDrawsBackground(false);
     statusLabel.setEditable(false);
     statusLabel.setSelectable(false);
-    statusLabel.setFont($.NSFont.boldSystemFontOfSize(13));
+    statusLabel.setFont($.NSFont.boldSystemFontOfSize(14));
     setCenterText(statusLabel, "Stopped", $.NSColor.secondaryLabelColor);
-    wheelView.addSubview(statusLabel);
+    statusLabel.setAlignment($.NSTextAlignmentLeft);
+    if (statusLabel.cell) statusLabel.cell.setAlignment($.NSTextAlignmentLeft);
+    controlsBox.addSubview(statusLabel);
 
     const isAutoStart = argv.some(a => a === "--autostart");
     if (isAutoStart) {
         btnStartStop.setTitle("⏹ Stop Hamster");
-        setCenterText(statusLabel, "Idle (Watching)", $.NSColor.systemGreenColor);
+        statusLabel.setStringValue("🟢 Idle (Watching)");
+        statusLabel.setTextColor($.NSColor.systemGreenColor);
     }
 
-    const btnWheelViewLog = createButton("📄 View Last Log", col2X + 20, 205, 150, 36, wheelView);
-    const btnWheelCreateHamster = createButton("✨ Breed Hamster", col2X + 20, 155, 150, 36, wheelView);
+    const btnWheelViewLog = createButton("📄 View Last Log", rowW - 165, 55, 145, 30, controlsBox);
+    const btnWheelCreateHamster = createButton("✨ Breed Hamster", rowW - 165, 18, 145, 30, controlsBox);
 
-    // --- Column 3: Outbox ---
-    createLabel("📤 Outbox", col3X, 400, colW, 26, true, 16, wheelView, true);
+    // --- Row 3: Outbox Row (Bottom) ---
+    const outboxBox = $.NSBox.alloc.initWithFrame($.NSMakeRect(rowX, 115, rowW, 95));
+    outboxBox.setBoxType($.NSBoxCustom);
+    outboxBox.setBorderType($.NSLineBorder);
+    outboxBox.setBorderWidth(1.0);
+    outboxBox.setBorderColor($.NSColor.separatorColor);
+    outboxBox.setCornerRadius(8.0);
+    outboxBox.setFillColor($.NSColor.controlBackgroundColor);
+    wheelView.addSubview(outboxBox);
 
-    const outputCountLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col3X, 280, colW, 80));
+    // Big Icon on Left of Large Number
+    createLabel("📤", 18, 16, 46, 60, false, 36, outboxBox, false);
+
+    const outputCountLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(68, 12, 115, 68));
     outputCountLabel.setBezeled(false);
     outputCountLabel.setDrawsBackground(false);
     outputCountLabel.setEditable(false);
     outputCountLabel.setSelectable(false);
-    outputCountLabel.setFont($.NSFont.boldSystemFontOfSize(64));
-    setCenterText(outputCountLabel, "0", $.NSColor.systemGreenColor);
-    wheelView.addSubview(outputCountLabel);
+    outputCountLabel.setFont($.NSFont.boldSystemFontOfSize(48));
+    setLeftText(outputCountLabel, "0", $.NSColor.systemGreenColor);
+    outboxBox.addSubview(outputCountLabel);
 
-    const btnWheelOpenOutput = createButton("📂 Open Outbox", col3X + 20, 205, 150, 36, wheelView);
+    createLabel("Outbox", 195, 50, 220, 24, true, 16, outboxBox, false);
+    const outDesc = createLabel("Completed items ready for pickup", 195, 26, 220, 18, false, 12, outboxBox, false);
+    outDesc.setTextColor($.NSColor.secondaryLabelColor);
 
-    // Footer
-    const btnWheelOpenHome = createButton("🏠 Open Hamster Home", 15, 20, 180, 32, wheelView);
+    const btnWheelOpenOutput = createButton("📂 Open Outbox", rowW - 155, 30, 135, 34, outboxBox);
+
+    // --- Row 4: Footer ---
+    const btnWheelOpenHome = createButton("🏠 Open Hamster Home", rowX, 35, 200, 34, wheelView);
 
     // =========================================================================
     // TAB 2: ⚙️ Settings Tab (Clean Flat Form Layout)
@@ -435,31 +490,35 @@ function run(argv) {
     tab2.view = settingsView;
     tabView.addTabViewItem(tab2);
 
-    const sTop = 445;
+    const sTop = 450;
+
+    // Display Name
+    createLabel("Display Name:", 15, sTop, 120, 20, true, 12, settingsView, false);
+    const displayNameField = createTextField(config.displayName, 140, sTop, 445, 22, settingsView);
 
     // Hamster Home Header (Label on left, action buttons on right)
-    createLabel("Hamster Home:", 15, sTop, 150, 20, true, 12, settingsView, false);
-    const btnChooseHome = createButton("Choose…", 420, sTop - 2, 78, 26, settingsView);
-    const btnOpenHome = createButton("📂 Open", 502, sTop - 2, 83, 26, settingsView);
+    createLabel("Hamster Home:", 15, sTop - 35, 150, 20, true, 12, settingsView, false);
+    const btnChooseHome = createButton("Choose…", 420, sTop - 37, 78, 26, settingsView);
+    const btnOpenHome = createButton("📂 Open", 502, sTop - 37, 83, 26, settingsView);
 
     // Full Width Hamster Home Path Field
-    const homeField = createTextField(config.homeFolder, 15, sTop - 28, 570, 22, settingsView);
+    const homeField = createTextField(config.homeFolder, 15, sTop - 63, 570, 22, settingsView);
 
     // Input Folder
-    createLabel("Input (Inbox):", 15, sTop - 65, 120, 20, true, 12, settingsView, false);
-    const inputField = createTextField(toDisplayPath(config.inputFolder, config.homeFolder), 140, sTop - 65, 275, 22, settingsView);
-    const btnChooseInput = createButton("Choose…", 420, sTop - 67, 78, 26, settingsView);
-    const btnOpenInput = createButton("📂 Open", 502, sTop - 67, 83, 26, settingsView);
+    createLabel("Input (Inbox):", 15, sTop - 98, 120, 20, true, 12, settingsView, false);
+    const inputField = createTextField(toDisplayPath(config.inputFolder, config.homeFolder), 140, sTop - 98, 275, 22, settingsView);
+    const btnChooseInput = createButton("Choose…", 420, sTop - 100, 78, 26, settingsView);
+    const btnOpenInput = createButton("📂 Open", 502, sTop - 100, 83, 26, settingsView);
 
     // Output Folder
-    createLabel("Output (Outbox):", 15, sTop - 100, 120, 20, true, 12, settingsView, false);
-    const outputField = createTextField(toDisplayPath(config.outputFolder, config.homeFolder), 140, sTop - 100, 275, 22, settingsView);
-    const btnChooseOutput = createButton("Choose…", 420, sTop - 102, 78, 26, settingsView);
-    const btnOpenOutput = createButton("📂 Open", 502, sTop - 102, 83, 26, settingsView);
+    createLabel("Output (Outbox):", 15, sTop - 131, 120, 20, true, 12, settingsView, false);
+    const outputField = createTextField(toDisplayPath(config.outputFolder, config.homeFolder), 140, sTop - 131, 275, 22, settingsView);
+    const btnChooseOutput = createButton("Choose…", 420, sTop - 133, 78, 26, settingsView);
+    const btnOpenOutput = createButton("📂 Open", 502, sTop - 133, 83, 26, settingsView);
 
     // AI Backend
-    createLabel("AI Backend:", 15, sTop - 135, 120, 20, true, 12, settingsView, false);
-    const agentPopup = $.NSPopUpButton.alloc.initWithFramePullsDown($.NSMakeRect(140, sTop - 138, 180, 26), false);
+    createLabel("AI Backend:", 15, sTop - 164, 120, 20, true, 12, settingsView, false);
+    const agentPopup = $.NSPopUpButton.alloc.initWithFramePullsDown($.NSMakeRect(140, sTop - 167, 180, 26), false);
     agentPopup.addItemWithTitle("Gemini (" + (agyPath ? "Installed" : "Not Found") + ")");
     agentPopup.addItemWithTitle("Claude (" + (claudePath ? "Installed" : "Not Found") + ")");
     agentPopup.addItemWithTitle("Codex (" + (codexPath ? "Installed" : "Not Found") + ")");
@@ -478,16 +537,16 @@ function run(argv) {
         return agyPath || "Gemini/Agy CLI not found";
     }
 
-    createLabel(getSelectedBackendPath(), 330, sTop - 135, 255, 20, false, 10, settingsView, false);
+    createLabel(getSelectedBackendPath(), 330, sTop - 164, 255, 20, false, 10, settingsView, false);
 
     // Instructions
-    createLabel("Instructions / Prompt Template:", 15, sTop - 165, 250, 20, true, 12, settingsView, false);
-    const scrollInstr = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(15, sTop - 260, 570, 92));
+    createLabel("Instructions / Prompt Template:", 15, sTop - 194, 250, 20, true, 12, settingsView, false);
+    const scrollInstr = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(15, sTop - 276, 570, 78));
     scrollInstr.setHasVerticalScroller(true);
     scrollInstr.setBorderType($.NSBezelBorder);
 
     const instrTextView = $.NSTextView.alloc.initWithFrame(scrollInstr.contentView.frame);
-    instrTextView.setMinSize($.NSMakeSize(0.0, 92));
+    instrTextView.setMinSize($.NSMakeSize(0.0, 78));
     instrTextView.setMaxSize($.NSMakeSize(10000.0, 10000.0));
     instrTextView.setVerticallyResizable(true);
     instrTextView.setHorizontallyResizable(false);
@@ -498,16 +557,16 @@ function run(argv) {
     settingsView.addSubview(scrollInstr);
 
     // Tools List
-    createLabel("Tools Folders:", 15, sTop - 295, 120, 20, true, 12, settingsView, false);
-    const toolsField = createTextField(config.tools.join("; "), 140, sTop - 295, 295, 22, settingsView);
-    const btnAddTool = createButton("Add Folder…", 440, sTop - 297, 95, 26, settingsView);
-    const btnClearTools = createButton("Clear", 540, sTop - 297, 45, 26, settingsView);
+    createLabel("Tools Folders:", 15, sTop - 308, 120, 20, true, 12, settingsView, false);
+    const toolsField = createTextField(config.tools.join("; "), 140, sTop - 308, 295, 22, settingsView);
+    const btnAddTool = createButton("Add Folder…", 440, sTop - 310, 95, 26, settingsView);
+    const btnClearTools = createButton("Clear", 540, sTop - 310, 45, 26, settingsView);
 
     // Skills List
-    createLabel("Skills Folders:", 15, sTop - 328, 120, 20, true, 12, settingsView, false);
-    const skillsField = createTextField(config.skills.join("; "), 140, sTop - 328, 295, 22, settingsView);
-    const btnAddSkill = createButton("Add Folder…", 440, sTop - 330, 95, 26, settingsView);
-    const btnClearSkills = createButton("Clear", 540, sTop - 330, 45, 26, settingsView);
+    createLabel("Skills Folders:", 15, sTop - 340, 120, 20, true, 12, settingsView, false);
+    const skillsField = createTextField(config.skills.join("; "), 140, sTop - 340, 295, 22, settingsView);
+    const btnAddSkill = createButton("Add Folder…", 440, sTop - 342, 95, 26, settingsView);
+    const btnClearSkills = createButton("Clear", 540, sTop - 342, 45, 26, settingsView);
 
     // Settings Footer Buttons
     const btnSave = createButton("💾 Save Configuration", 15, 20, 175, 36, settingsView);
@@ -532,8 +591,8 @@ function run(argv) {
         const inItems = listDir(currentInDir).filter(n => !n.startsWith(".") && !n.endsWith(".hamster_claim") && !n.endsWith(".tmp"));
         const outItems = listDir(currentOutDir).filter(n => !n.startsWith("."));
 
-        setCenterText(inputCountLabel, "" + inItems.length, $.NSColor.systemBlueColor);
-        setCenterText(outputCountLabel, "" + outItems.length, $.NSColor.systemGreenColor);
+        setLeftText(inputCountLabel, "" + inItems.length, $.NSColor.systemBlueColor);
+        setLeftText(outputCountLabel, "" + outItems.length, $.NSColor.systemGreenColor);
 
         const isRunning = getWorkerState();
         if (!isRunning) {
@@ -840,6 +899,7 @@ function run(argv) {
                         makeDir(inDir);
                         makeDir(outDir);
 
+                        config.displayName = ObjC.unwrap(displayNameField.stringValue).trim() || defaultDisplayName;
                         config.homeFolder = homeDir;
                         config.inputFolder = inDir;
                         config.outputFolder = outDir;
@@ -847,6 +907,9 @@ function run(argv) {
                         const selAgent = agentPopup.indexOfSelectedItem;
                         config.agent = (selAgent === 2 ? "codex" : (selAgent === 1 ? "claude" : "gemini"));
                         saveConfig();
+
+                        headerTitleLabel.setStringValue("🐹 " + config.displayName);
+                        win.setTitle("🐹 " + config.displayName + " (" + hamsterId + ")");
 
                         setWorkerState(true);
                         btnStartStop.setTitle("⏹ Stop Hamster");
@@ -861,6 +924,7 @@ function run(argv) {
             "onSave:": {
                 types: ["void", ["id"]],
                 implementation: function(sender) {
+                    config.displayName = ObjC.unwrap(displayNameField.stringValue).trim() || defaultDisplayName;
                     config.homeFolder = ObjC.unwrap(homeField.stringValue).trim() || config.homeFolder;
                     config.inputFolder = fromDisplayPath(ObjC.unwrap(inputField.stringValue), config.homeFolder);
                     config.outputFolder = fromDisplayPath(ObjC.unwrap(outputField.stringValue), config.homeFolder);
@@ -868,6 +932,8 @@ function run(argv) {
                     const selAgent = agentPopup.indexOfSelectedItem;
                     config.agent = (selAgent === 2 ? "codex" : (selAgent === 1 ? "claude" : "gemini"));
                     saveConfig();
+                    headerTitleLabel.setStringValue("🐹 " + config.displayName);
+                    win.setTitle("🐹 " + config.displayName + " (" + hamsterId + ")");
                     settingsFeedbackLabel.setStringValue("Saved at " + new Date().toLocaleTimeString());
                 }
             },
@@ -944,26 +1010,52 @@ function run(argv) {
                     checkWorkerHeartbeat();
                 }
             },
+            "windowShouldClose:": {
+                types: ["bool", ["id"]],
+                implementation: function(sender) {
+                    const isRunning = getWorkerState();
+                    if (isRunning) {
+                        const alert = $.NSAlert.alloc.init;
+                        alert.setMessageText("Hamster is running");
+                        alert.setInformativeText("Do you want to stop the Hamster, or keep it running in the background?");
+                        alert.addButtonWithTitle("Keep Running in Background");
+                        alert.addButtonWithTitle("Stop and Close");
+                        alert.addButtonWithTitle("Cancel");
+
+                        const response = alert.runModal;
+                        if (response === $.NSAlertFirstButtonReturn) {
+                            win.orderOut(null);
+                            app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
+                            return false;
+                        } else if (response === $.NSAlertSecondButtonReturn) {
+                            setWorkerState(false);
+                            if (currentTask && currentTask.isRunning) {
+                                currentTask.terminate;
+                            }
+                            if (activeClaimItem && fm.fileExistsAtPath(activeClaimItem.claimPath)) {
+                                movePath(activeClaimItem.claimPath, activeClaimItem.origPath);
+                            }
+                            removePath(pidFile);
+                            app.terminate(null);
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    } else {
+                        removePath(pidFile);
+                        app.terminate(null);
+                        return true;
+                    }
+                }
+            },
             "applicationShouldHandleReopen:hasVisibleWindows:": {
                 types: ["bool", ["id", "bool"]],
                 implementation: function(sender, flag) {
+                    app.setActivationPolicy($.NSApplicationActivationPolicyRegular);
                     win.makeKeyAndOrderFront(null);
                     win.orderFrontRegardless;
                     app.activateIgnoringOtherApps(true);
                     return true;
-                }
-            },
-            "windowWillClose:": {
-                types: ["void", ["id"]],
-                implementation: function(notification) {
-                    if (currentTask && currentTask.isRunning) {
-                        currentTask.terminate;
-                    }
-                    if (activeClaimItem && fm.fileExistsAtPath(activeClaimItem.claimPath)) {
-                        movePath(activeClaimItem.claimPath, activeClaimItem.origPath);
-                    }
-                    removePath(pidFile);
-                    app.terminate(null);
                 }
             }
         }
@@ -1035,10 +1127,15 @@ function run(argv) {
     );
     $.NSRunLoop.currentRunLoop.addTimerForMode(timer, $.NSRunLoopCommonModes);
 
-    // Show window and bring to front
-    win.makeKeyAndOrderFront(null);
-    win.orderFrontRegardless;
-    app.activateIgnoringOtherApps(true);
+    // Show window unless launched in headless mode
+    const isHeadless = argv.some(a => a === "--headless");
+    if (!isHeadless) {
+        win.makeKeyAndOrderFront(null);
+        win.orderFrontRegardless;
+        app.activateIgnoringOtherApps(true);
+    } else {
+        app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
+    }
 
     // Start Native Cocoa Run Loop
     app.run;

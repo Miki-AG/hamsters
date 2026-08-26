@@ -2,11 +2,9 @@
 # ==============================================================================
 # 🐹 HAMSTER HABITAT - Minimalist Master Fleet Dashboard
 # ==============================================================================
-# - Single-file, zero-dependency master controller for all local Hamsters.
-# - Decoupled state management via ~/Library/Application Support/Hamsters/<ID>/state.txt
-# - Start/Stop individual Hamster workers or entire fleet in parallel.
-# - Independent Open Window actions to inspect settings or GUI on demand.
-# - Real-time monitoring of live queue counts, status badges, and backends.
+# - Auto-discovers all local Hamsters.
+# - Decoupled state: starts/stops workers headlessly without opening windows.
+# - Clean, minimalist list: each item shows queue/finished stats, Start/Stop, and Open.
 # ==============================================================================
 
 export PATH="/usr/local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:$HOME/.gemini/bin:$HOME/.codex/bin:$HOME/.claude/bin:$HOME/bin:$PATH"
@@ -103,8 +101,8 @@ function run(argv) {
     appMenuItem.setSubmenu(appMenu);
     app.setMainMenu(menubar);
 
-    const winWidth = 720;
-    const winHeight = 540;
+    const winWidth = 640;
+    const winHeight = 500;
     const win = $.NSWindow.alloc.initWithContentRectStyleMaskBackingDefer(
         $.NSMakeRect(200, 200, winWidth, winHeight),
         $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable | $.NSWindowStyleMaskMiniaturizable | $.NSWindowStyleMaskResizable,
@@ -144,18 +142,18 @@ function run(argv) {
     }
 
     // Top Header
-    createLabel("🐹 Hamster Habitat", 20, winHeight - 40, 220, 26, true, 18, contentView);
-    const summaryLabel = createLabel("Loading workers…", 210, winHeight - 37, 220, 20, false, 12, contentView);
+    createLabel("🐹 Hamster Habitat", 20, winHeight - 38, 200, 26, true, 17, contentView);
+    const summaryLabel = createLabel("Loading workers…", 195, winHeight - 35, 230, 20, false, 11, contentView);
     summaryLabel.setTextColor($.NSColor.secondaryLabelColor);
 
     // Fleet Actions in Header
-    const btnStartAll = createButton("▶ Start All", winWidth - 300, winHeight - 42, 90, 28, contentView);
-    const btnStopAll = createButton("⏹ Stop All", winWidth - 205, winHeight - 42, 90, 28, contentView);
-    const btnBreed = createButton("✨ Breed", winWidth - 110, winHeight - 42, 90, 28, contentView);
+    const btnStartAll = createButton("▶ Start All", winWidth - 280, winHeight - 40, 85, 28, contentView);
+    const btnStopAll = createButton("⏹ Stop All", winWidth - 190, winHeight - 40, 85, 28, contentView);
+    const btnBreed = createButton("✨ Breed", winWidth - 100, winHeight - 40, 85, 28, contentView);
     btnBreed.setFont($.NSFont.boldSystemFontOfSize(12));
 
     // Scrollable Hamster Cards List
-    const scrollList = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(15, 48, winWidth - 30, winHeight - 98));
+    const scrollList = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(15, 15, winWidth - 30, winHeight - 65));
     scrollList.setHasVerticalScroller(true);
     scrollList.setHasHorizontalScroller(false);
     scrollList.setAutohidesScrollers(true);
@@ -165,12 +163,6 @@ function run(argv) {
 
     const listContainer = $.NSView.alloc.initWithFrame(scrollList.contentView.bounds);
     scrollList.setDocumentView(listContainer);
-
-    // Footer
-    const footerLabel = createLabel("Worker state is managed via state.txt. Windows can be opened on demand.", 20, 15, 480, 20, false, 11, contentView);
-    footerLabel.setTextColor($.NSColor.secondaryLabelColor);
-
-    const btnOpenAllHome = createButton("🏠 Open Hamsters Folder", winWidth - 200, 11, 185, 28, contentView);
 
     // -------------------------------------------------------------------------
     // Habitat State Engine
@@ -219,8 +211,7 @@ function run(argv) {
 
             list.push({
                 id: id,
-                name: cfg.name || ("Hamster " + id.replace("hamster-", "")),
-                agent: cfg.agent || "gemini",
+                name: cfg.displayName || cfg.name || ("Hamster " + id.replace("hamster-", "")),
                 homeFolder: homeDir,
                 inputFolder: inDir,
                 outputFolder: outDir,
@@ -239,13 +230,13 @@ function run(argv) {
         return list;
     }
 
-    function ensureHamsterRunning(h, autostart) {
+    function ensureHamsterRunning(h) {
         if (h.isProcessAlive) return;
         const targetScript = (h.scriptPath && fm.fileExistsAtPath(h.scriptPath)) ? h.scriptPath : (scriptPath.substring(0, scriptPath.lastIndexOf("/")) + "/" + h.id + ".command");
         if (fm.fileExistsAtPath(targetScript)) {
             const task = $.NSTask.alloc.init;
             task.setLaunchPath("/bin/zsh");
-            const cmd = "nohup " + JSON.stringify(targetScript) + " --gui-worker " + (autostart ? "--autostart" : "") + " >/dev/null 2>&1 &";
+            const cmd = "nohup " + JSON.stringify(targetScript) + " --gui-worker --headless >/dev/null 2>&1 &";
             task.setArguments($([ "-c", cmd ]));
             task.launch;
         }
@@ -265,7 +256,7 @@ function run(argv) {
             if (h.isWorkerRunning) activeWorkers++;
         });
 
-        summaryLabel.setStringValue(hamsters.length + " Hamsters (" + activeWorkers + " processing) • 📥 " + totalIn + " • 📤 " + totalOut);
+        summaryLabel.setStringValue(hamsters.length + " Hamsters (" + activeWorkers + " active) • 📥 " + totalIn + " • 📤 " + totalOut);
 
         // Clear subviews
         const subviews = listContainer.subviews;
@@ -274,8 +265,8 @@ function run(argv) {
             subviews.objectAtIndex(i).removeFromSuperview;
         }
 
-        const cardH = 58;
-        const spacing = 6;
+        const cardH = 74;
+        const spacing = 8;
         const totalHeight = Math.max(scrollList.contentView.bounds.size.height, hamsters.length * (cardH + spacing) + 10);
         const listW = scrollList.contentView.bounds.size.width;
 
@@ -291,8 +282,9 @@ function run(argv) {
         for (let i = 0; i < hamsters.length; i++) {
             const h = hamsters[i];
             const y = totalHeight - ((i + 1) * (cardH + spacing));
+            const cardW = listW - 20;
 
-            const card = $.NSBox.alloc.initWithFrame($.NSMakeRect(10, y, listW - 20, cardH));
+            const card = $.NSBox.alloc.initWithFrame($.NSMakeRect(10, y, cardW, cardH));
             card.setBoxType($.NSBoxCustom);
             card.setBorderType($.NSLineBorder);
             card.setBorderWidth(1.0);
@@ -301,31 +293,32 @@ function run(argv) {
             card.setFillColor($.NSColor.controlBackgroundColor);
             listContainer.addSubview(card);
 
-            // Status Indicator & Name
+            // Left Side: In Queue Stat (Icon / Large Number / Subtitle) - Tight Spacing
+            createLabel("📥", 16, 19, 28, 36, false, 22, card);
+            const inCountLabel = createLabel("" + h.inCount, 46, 17, 36, 40, true, 30, card);
+            inCountLabel.setTextColor($.NSColor.systemBlueColor);
+            const inSub = createLabel("in queue", 82, 25, 60, 20, false, 11, card);
+            inSub.setTextColor($.NSColor.secondaryLabelColor);
+
+            // Left Side: Finished Stat (Icon / Large Number / Subtitle) - Tight Spacing
+            createLabel("📤", 155, 19, 28, 36, false, 22, card);
+            const outCountLabel = createLabel("" + h.outCount, 185, 17, 36, 40, true, 30, card);
+            outCountLabel.setTextColor($.NSColor.systemGreenColor);
+            const outSub = createLabel("finished", 221, 25, 60, 20, false, 11, card);
+            outSub.setTextColor($.NSColor.secondaryLabelColor);
+
+            // Right Column: Name on Top (12px top margin), Buttons Below (12px bottom margin)
             const statusDot = h.isWorkerRunning ? "🟢" : "⚪️";
-            createLabel(statusDot + " " + h.name, 12, 30, 210, 20, true, 13, card);
+            createLabel(statusDot + " " + h.name, cardW - 195, 42, 185, 20, true, 13, card);
 
-            // Backend & Queue Counts
-            const badgeText = h.agent.toUpperCase() + "  •  📥 " + h.inCount + " in queue  •  📤 " + h.outCount + " finished";
-            const badgeLabel = createLabel(badgeText, 12, 10, 270, 18, false, 11, card);
-            badgeLabel.setTextColor($.NSColor.secondaryLabelColor);
-
-            // Worker Play/Stop Button
             const toggleTitle = h.isWorkerRunning ? "⏹ Stop" : "▶ Start";
-            const btnToggle = createButton(toggleTitle, listW - 295, 14, 80, 28, card);
+            const btnToggle = createButton(toggleTitle, cardW - 195, 12, 88, 26, card);
             btnToggle.setFont($.NSFont.boldSystemFontOfSize(11));
             btnToggle.setTarget(coordinator);
             btnToggle.setAction("onCardToggleWorker:");
             btnToggle.setTag(i);
 
-            // Action Buttons
-            const btnOpenHome = createButton("📂 Home", listW - 205, 14, 75, 28, card);
-            btnOpenHome.setFont($.NSFont.systemFontOfSize(11));
-            btnOpenHome.setTarget(coordinator);
-            btnOpenHome.setAction("onCardOpenHome:");
-            btnOpenHome.setTag(i);
-
-            const btnOpenWindow = createButton("🖥 Window", listW - 120, 14, 85, 28, card);
+            const btnOpenWindow = createButton("🖥 Open", cardW - 100, 12, 88, 26, card);
             btnOpenWindow.setFont($.NSFont.systemFontOfSize(11));
             btnOpenWindow.setTarget(coordinator);
             btnOpenWindow.setAction("onCardOpenWindow:");
@@ -337,14 +330,14 @@ function run(argv) {
     // Habitat Coordinator
     // -------------------------------------------------------------------------
     ObjC.registerSubclass({
-        name: "HabitatCoordinatorV2",
+        name: "HabitatCoordinatorV3",
         methods: {
             "onStartAll:": {
                 types: ["void", ["id"]],
                 implementation: function(sender) {
                     cachedHamsters.forEach(h => {
                         writeText(h.stateFile, "RUNNING");
-                        ensureHamsterRunning(h, true);
+                        ensureHamsterRunning(h);
                     });
                     renderHamsters();
                 }
@@ -371,14 +364,6 @@ function run(argv) {
                     }
                 }
             },
-            "onOpenAllHome:": {
-                types: ["void", ["id"]],
-                implementation: function(sender) {
-                    const rootHome = userHome + "/Hamsters";
-                    makeDir(rootHome);
-                    $.NSWorkspace.sharedWorkspace.openFile(rootHome);
-                }
-            },
             "onCardToggleWorker:": {
                 types: ["void", ["id"]],
                 implementation: function(sender) {
@@ -388,20 +373,9 @@ function run(argv) {
                         const nextState = h.isWorkerRunning ? "STOPPED" : "RUNNING";
                         writeText(h.stateFile, nextState);
                         if (nextState === "RUNNING") {
-                            ensureHamsterRunning(h, true);
+                            ensureHamsterRunning(h);
                         }
                         renderHamsters();
-                    }
-                }
-            },
-            "onCardOpenHome:": {
-                types: ["void", ["id"]],
-                implementation: function(sender) {
-                    const idx = sender.tag;
-                    const h = cachedHamsters[idx];
-                    if (h && h.homeFolder) {
-                        makeDir(h.homeFolder);
-                        $.NSWorkspace.sharedWorkspace.openFile(h.homeFolder);
                     }
                 }
             },
@@ -447,7 +421,7 @@ function run(argv) {
         }
     });
 
-    const coordinator = $.HabitatCoordinatorV2.alloc.init;
+    const coordinator = $.HabitatCoordinatorV3.alloc.init;
     app.setDelegate(coordinator);
     win.setDelegate(coordinator);
 
@@ -459,9 +433,6 @@ function run(argv) {
 
     btnBreed.setTarget(coordinator);
     btnBreed.setAction("onBreed:");
-
-    btnOpenAllHome.setTarget(coordinator);
-    btnOpenAllHome.setAction("onOpenAllHome:");
 
     // Initial render
     renderHamsters();

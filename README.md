@@ -31,7 +31,21 @@ If a tool works when you type its command in your terminal, it works instantly i
 
 ---
 
-## 🏗️ Chaining Hamsters: Building a Habitat
+## 🧭 Managing Your Colony: `habitat.command`
+
+When you have multiple Hamsters running and don't want floating windows cluttering your screen, double-click **`habitat.command`**.
+
+It gives you a single, minimalist command deck for your entire fleet:
+
+- **Decoupled Architecture**: Hamsters can chew on their queues quietly in the background without their windows staying open.
+- **Fleet Controls**: Click **`▶ Start All`** or **`⏹ Stop All`** to pause or resume processing across all workers in one click.
+- **Per-Hamster Toggles**: Hit **`▶ Start`** or **`⏹ Stop`** on any individual card to control that specific worker.
+- **Open Window On Demand**: Click **`🖥 Window`** on any card to bring up its full configuration screen whenever you want to inspect logs or adjust prompts.
+- **Instant Breeding**: Click **`✨ Breed`** to spawn a new Hamster into your habitat immediately.
+
+---
+
+## 🏗️ Chaining Hamsters: Building Workflows
 
 The real fun starts when you link Hamsters together. Because every Hamster just reads and writes to regular Mac folders, you can build any workflow by pointing one Hamster's **Outbox** to another Hamster's **Inbox**.
 
@@ -77,30 +91,19 @@ flowchart LR
 
 ---
 
-## ✨ Breeding: Instant Help When You Need It
+## ✨ Breeding: Instant Duplication
 
-Need another worker for a different job? Click **`✨ Breed Hamster`** on the wheel.
+Need another worker for a different job? Click **`✨ Breed Hamster`** on the wheel or in the Habitat.
 
 A fresh `hamster-<id>.command` is generated in the same directory and boots up instantly with its own dedicated home, inbox, outbox, and settings. No copy-pasting code or manual configuring required.
 
 ---
 
-## 🧭 Managing Your Fleet: `habitat.command`
-
-When you have multiple Hamsters running and don't want floating windows cluttering your screen, double-click **`habitat.command`**.
-
-It opens a single, clean dashboard that auto-detects all your local Hamsters:
-- **Live Statuses**: Shows which workers are running or stopped.
-- **Aggregated Queue Counts**: See total items queued and finished across your entire fleet in real-time.
-- **One-Click Actions**: Open individual Hamster windows, inboxes, or home folders on demand.
-
----
-
 ## ⚙️ Customizing Your Hamster
 
-Flip to the **⚙️ Settings** tab to teach your Hamster new tricks:
+Flip to the **⚙️ Settings** tab on any Hamster to teach it new tricks:
 
-- **Hamster Home**: Where this Hamster's folders live.
+- **Hamster Home**: Where this Hamster's folders live (full path).
 - **Input & Output**: Change the folders it watches and outputs to.
 - **AI Backend**: Choose between **Gemini (`agy`)**, **Claude (`claude`)**, or **Codex (`codex`)**.
 - **Prompt Template**: Tell the Hamster exactly what to do with the files it receives.

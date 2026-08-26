@@ -85,6 +85,17 @@ A fresh `hamster-<id>.command` is generated in the same directory and boots up i
 
 ---
 
+## 🧭 Managing Your Fleet: `habitat.command`
+
+When you have multiple Hamsters running and don't want floating windows cluttering your screen, double-click **`habitat.command`**.
+
+It opens a single, clean dashboard that auto-detects all your local Hamsters:
+- **Live Statuses**: Shows which workers are running or stopped.
+- **Aggregated Queue Counts**: See total items queued and finished across your entire fleet in real-time.
+- **One-Click Actions**: Open individual Hamster windows, inboxes, or home folders on demand.
+
+---
+
 ## ⚙️ Customizing Your Hamster
 
 Flip to the **⚙️ Settings** tab to teach your Hamster new tricks:

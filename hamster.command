@@ -58,7 +58,7 @@ fi
 # Auto-Dismiss Terminal Window if launched from Finder / Terminal
 # ------------------------------------------------------------------------------
 if [ "$1" != "--gui-worker" ]; then
-    nohup "$SCRIPT_PATH" --gui-worker >/dev/null 2>&1 &
+    nohup "$SCRIPT_PATH" --gui-worker "$@" >/dev/null 2>&1 &
     osascript -e '
     tell application "Terminal"
         if (count of windows) > 0 then
@@ -93,7 +93,7 @@ fi
 # ------------------------------------------------------------------------------
 # 3. Clean Launch Hand-Off (Direct process replacement with JXA)
 # ------------------------------------------------------------------------------
-exec /usr/bin/osascript -l JavaScript - "$HAMSTER_ID" "$HAMSTER_DIR" "$SCRIPT_PATH" << 'EOF'
+exec /usr/bin/osascript -l JavaScript - "$HAMSTER_ID" "$HAMSTER_DIR" "$SCRIPT_PATH" "$@" << 'EOF'
 function run(argv) {
     ObjC.import("Cocoa");
 
@@ -103,9 +103,26 @@ function run(argv) {
     const configFile = hamsterDir + "/config.json";
     const logFile = hamsterDir + "/last_run.log";
     const pidFile = hamsterDir + "/app.pid";
+    const stateFile = hamsterDir + "/state.txt";
 
     const fm = $.NSFileManager.defaultManager;
     const userHome = "/Users/" + $.NSUserName().js;
+
+    function getWorkerState() {
+        if (!fm.fileExistsAtPath(stateFile)) return false;
+        try {
+            const str = ObjC.unwrap($.NSString.stringWithContentsOfFileEncodingError(stateFile, $.NSUTF8StringEncoding, $())).trim();
+            return (str === "RUNNING");
+        } catch(e) {
+            return false;
+        }
+    }
+
+    function setWorkerState(running) {
+        const str = running ? "RUNNING" : "STOPPED";
+        const ns = $.NSString.stringWithString(str);
+        ns.writeToFileAtomicallyEncodingError(stateFile, true, $.NSUTF8StringEncoding, $());
+    }
 
     // Bridge-safe filesystem helpers
     function makeDir(path) {
@@ -383,6 +400,12 @@ function run(argv) {
     setCenterText(statusLabel, "Stopped", $.NSColor.secondaryLabelColor);
     wheelView.addSubview(statusLabel);
 
+    const isAutoStart = argv.some(a => a === "--autostart");
+    if (isAutoStart) {
+        btnStartStop.setTitle("⏹ Stop Hamster");
+        setCenterText(statusLabel, "Idle (Watching)", $.NSColor.systemGreenColor);
+    }
+
     const btnWheelViewLog = createButton("📄 View Last Log", col2X + 20, 205, 150, 36, wheelView);
     const btnWheelCreateHamster = createButton("✨ Breed Hamster", col2X + 20, 155, 150, 36, wheelView);
 
@@ -512,7 +535,19 @@ function run(argv) {
         setCenterText(inputCountLabel, "" + inItems.length, $.NSColor.systemBlueColor);
         setCenterText(outputCountLabel, "" + outItems.length, $.NSColor.systemGreenColor);
 
-        if (!isWorkerRunning) return;
+        const isRunning = getWorkerState();
+        if (!isRunning) {
+            btnStartStop.setTitle("▶ Start Hamster");
+            if (currentTask === null) {
+                setCenterText(statusLabel, "Stopped", $.NSColor.secondaryLabelColor);
+            }
+            return;
+        } else {
+            btnStartStop.setTitle("⏹ Stop Hamster");
+            if (currentTask === null && (statusLabel.stringValue.js === "Stopped" || !statusLabel.stringValue.js)) {
+                setCenterText(statusLabel, "Idle (Watching)", $.NSColor.systemGreenColor);
+            }
+        }
 
         if (currentTask !== null) {
             if (!currentTask.isRunning) {
@@ -786,7 +821,8 @@ function run(argv) {
             "onStartStop:": {
                 types: ["void", ["id"]],
                 implementation: function(sender) {
-                    if (!isWorkerRunning) {
+                    const currentlyRunning = getWorkerState();
+                    if (!currentlyRunning) {
                         const homeDir = ObjC.unwrap(homeField.stringValue).trim() || config.homeFolder;
                         const inDir = fromDisplayPath(ObjC.unwrap(inputField.stringValue), homeDir);
                         const outDir = fromDisplayPath(ObjC.unwrap(outputField.stringValue), homeDir);
@@ -812,11 +848,11 @@ function run(argv) {
                         config.agent = (selAgent === 2 ? "codex" : (selAgent === 1 ? "claude" : "gemini"));
                         saveConfig();
 
-                        isWorkerRunning = true;
+                        setWorkerState(true);
                         btnStartStop.setTitle("⏹ Stop Hamster");
                         setCenterText(statusLabel, "Idle (Watching)", $.NSColor.systemGreenColor);
                     } else {
-                        isWorkerRunning = false;
+                        setWorkerState(false);
                         btnStartStop.setTitle("▶ Start Hamster");
                         setCenterText(statusLabel, "Stopped", $.NSColor.secondaryLabelColor);
                     }

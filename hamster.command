@@ -15,7 +15,7 @@
 # ==============================================================================
 
 # Ensure common CLI paths are available even when launched from Finder
-export PATH="/usr/local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:$HOME/.gemini/bin:$HOME/.codex/bin:$HOME/bin:$PATH"
+export PATH="/usr/local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:$HOME/.gemini/bin:$HOME/.codex/bin:$HOME/.claude/bin:$HOME/bin:$PATH"
 
 # Persistent Unique Hamster Identity placeholder (auto-populated on first run or clone)
 HAMSTER_ID="hamster-f6b5941e"
@@ -235,6 +235,7 @@ function run(argv) {
             "/opt/homebrew/bin/" + name,
             userHome + "/.local/bin/" + name,
             userHome + "/.gemini/bin/" + name,
+            userHome + "/.claude/bin/" + name,
             userHome + "/.codex/bin/" + name,
             "/usr/bin/" + name
         ];
@@ -245,6 +246,7 @@ function run(argv) {
     }
 
     const agyPath = detectCLI("agy") || detectCLI("gemini");
+    const claudePath = detectCLI("claude");
     const codexPath = detectCLI("codex");
 
     // App & Window Setup
@@ -436,18 +438,24 @@ function run(argv) {
     createLabel("AI Backend:", 15, sTop - 135, 120, 20, true, 12, settingsView, false);
     const agentPopup = $.NSPopUpButton.alloc.initWithFramePullsDown($.NSMakeRect(140, sTop - 138, 180, 26), false);
     agentPopup.addItemWithTitle("Gemini (" + (agyPath ? "Installed" : "Not Found") + ")");
+    agentPopup.addItemWithTitle("Claude (" + (claudePath ? "Installed" : "Not Found") + ")");
     agentPopup.addItemWithTitle("Codex (" + (codexPath ? "Installed" : "Not Found") + ")");
     if (config.agent === "codex") {
+        agentPopup.selectItemAtIndex(2);
+    } else if (config.agent === "claude") {
         agentPopup.selectItemAtIndex(1);
     } else {
         agentPopup.selectItemAtIndex(0);
     }
     settingsView.addSubview(agentPopup);
 
-    createLabel(
-        (config.agent === "codex" ? (codexPath || "Codex CLI not found") : (agyPath || "Gemini/Agy CLI not found")),
-        330, sTop - 135, 255, 20, false, 10, settingsView, false
-    );
+    function getSelectedBackendPath() {
+        if (config.agent === "codex") return codexPath || "Codex CLI not found";
+        if (config.agent === "claude") return claudePath || "Claude CLI not found";
+        return agyPath || "Gemini/Agy CLI not found";
+    }
+
+    createLabel(getSelectedBackendPath(), 330, sTop - 135, 255, 20, false, 10, settingsView, false);
 
     // Instructions
     createLabel("Instructions / Prompt Template:", 15, sTop - 165, 250, 20, true, 12, settingsView, false);
@@ -613,17 +621,16 @@ function run(argv) {
         task.setLaunchPath("/bin/zsh");
 
         let agentCmd = "";
+        let addDirArgs = "";
+        config.tools.concat(config.skills).forEach(d => {
+            if (d) addDirArgs += " --add-dir " + JSON.stringify(d);
+        });
+
         if (config.agent === "codex" && codexPath) {
-            let addDirArgs = "";
-            config.tools.concat(config.skills).forEach(d => {
-                if (d) addDirArgs += " --add-dir " + JSON.stringify(d);
-            });
             agentCmd = codexPath + " exec " + JSON.stringify(prompt) + " --cd " + JSON.stringify(stagingDir) + addDirArgs + " > " + JSON.stringify(logFile) + " 2>&1";
+        } else if (config.agent === "claude" && claudePath) {
+            agentCmd = "cd " + JSON.stringify(stagingDir) + " && " + claudePath + " -p --dangerously-skip-permissions " + JSON.stringify(prompt) + " > " + JSON.stringify(logFile) + " 2>&1";
         } else if (agyPath) {
-            let addDirArgs = "";
-            config.tools.concat(config.skills).forEach(d => {
-                if (d) addDirArgs += " --add-dir " + JSON.stringify(d);
-            });
             agentCmd = agyPath + " --print --dangerously-skip-permissions " + JSON.stringify(prompt) + addDirArgs + " > " + JSON.stringify(logFile) + " 2>&1";
         } else {
             agentCmd = "echo 'Processing without CLI...' > " + JSON.stringify(logFile) + "; cp -R " + JSON.stringify(claimPath) + " " + JSON.stringify(stagingDir + "/processed_" + filename);
@@ -801,7 +808,8 @@ function run(argv) {
                         config.inputFolder = inDir;
                         config.outputFolder = outDir;
                         config.instructions = ObjC.unwrap(instrTextView.string);
-                        config.agent = (agentPopup.indexOfSelectedItem === 1 ? "codex" : "gemini");
+                        const selAgent = agentPopup.indexOfSelectedItem;
+                        config.agent = (selAgent === 2 ? "codex" : (selAgent === 1 ? "claude" : "gemini"));
                         saveConfig();
 
                         isWorkerRunning = true;
@@ -821,7 +829,8 @@ function run(argv) {
                     config.inputFolder = fromDisplayPath(ObjC.unwrap(inputField.stringValue), config.homeFolder);
                     config.outputFolder = fromDisplayPath(ObjC.unwrap(outputField.stringValue), config.homeFolder);
                     config.instructions = ObjC.unwrap(instrTextView.string);
-                    config.agent = (agentPopup.indexOfSelectedItem === 1 ? "codex" : "gemini");
+                    const selAgent = agentPopup.indexOfSelectedItem;
+                    config.agent = (selAgent === 2 ? "codex" : (selAgent === 1 ? "claude" : "gemini"));
                     saveConfig();
                     settingsFeedbackLabel.setStringValue("Saved at " + new Date().toLocaleTimeString());
                 }

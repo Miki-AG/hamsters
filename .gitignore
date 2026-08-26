@@ -24,3 +24,6 @@ Hamster-*.command
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+# Agent customizations & local playbooks
+.agents/

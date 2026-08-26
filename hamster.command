@@ -54,6 +54,20 @@ if [ -f "$LOC_FILE" ]; then
     fi
 fi
 
+# ------------------------------------------------------------------------------
+# Auto-Dismiss Terminal Window if launched from Finder / Terminal
+# ------------------------------------------------------------------------------
+if [ "$1" != "--gui-worker" ]; then
+    nohup "$SCRIPT_PATH" --gui-worker >/dev/null 2>&1 &
+    osascript -e '
+    tell application "Terminal"
+        if (count of windows) > 0 then
+            close front window
+        end if
+    end tell' 2>/dev/null &
+    exit 0
+fi
+
 mkdir -p "$HAMSTER_DIR/work/claim" "$HAMSTER_DIR/work/output_staging"
 echo "$SCRIPT_PATH" > "$LOC_FILE"
 
@@ -325,7 +339,7 @@ function run(argv) {
     contentView.addSubview(tabView);
 
     // =========================================================================
-    // TAB 1: 🐹 Hamster Wheel (All texts centered per column)
+    // TAB 1: 🐹 Hamster Wheel (Clean, Uncluttered 3-Column Layout)
     // =========================================================================
     const tab1 = $.NSTabViewItem.alloc.init;
     tab1.label = "🐹 Hamster Wheel";
@@ -338,42 +352,27 @@ function run(argv) {
     const col2X = 215;
     const col3X = 415;
 
-    // --- Column 1: Input (Inbox) ---
-    createLabel("📥 Input (Inbox)", col1X, 415, colW, 24, true, 15, wheelView, true);
+    // --- Column 1: Inbox ---
+    createLabel("📥 Inbox", col1X, 400, colW, 26, true, 16, wheelView, true);
 
-    const inputCountLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col1X, 335, colW, 65));
+    const inputCountLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col1X, 280, colW, 80));
     inputCountLabel.setBezeled(false);
     inputCountLabel.setDrawsBackground(false);
     inputCountLabel.setEditable(false);
     inputCountLabel.setSelectable(false);
-    inputCountLabel.setFont($.NSFont.boldSystemFontOfSize(52));
+    inputCountLabel.setFont($.NSFont.boldSystemFontOfSize(64));
     setCenterText(inputCountLabel, "0", $.NSColor.systemBlueColor);
     wheelView.addSubview(inputCountLabel);
 
-    createLabel("items in queue", col1X, 305, colW, 18, false, 12, wheelView, true);
-
-    createLabel("FOLDER", col1X, 260, colW, 16, true, 10, wheelView, true);
-
-    const inputPathDisplay = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col1X, 238, colW, 20));
-    inputPathDisplay.setBezeled(false);
-    inputPathDisplay.setDrawsBackground(false);
-    inputPathDisplay.setEditable(false);
-    inputPathDisplay.setSelectable(false);
-    inputPathDisplay.setFont($.NSFont.systemFontOfSize(12));
-    setCenterText(inputPathDisplay, toDisplayPath(config.inputFolder, config.homeFolder), $.NSColor.secondaryLabelColor);
-    wheelView.addSubview(inputPathDisplay);
-
-    const btnWheelOpenInput = createButton("📂 Open Inbox", col1X + 20, 180, 150, 34, wheelView);
+    const btnWheelOpenInput = createButton("📂 Open Inbox", col1X + 20, 205, 150, 36, wheelView);
 
     // --- Column 2: Controls & Status ---
-    createLabel("⚙️ Wheel Controls", col2X, 415, colW, 24, true, 15, wheelView, true);
+    createLabel("⚙️ Controls", col2X, 400, colW, 26, true, 16, wheelView, true);
 
-    const btnStartStop = createButton("▶ Start Hamster", col2X + 15, 345, 160, 44, wheelView);
+    const btnStartStop = createButton("▶ Start Hamster", col2X + 15, 335, 160, 44, wheelView);
     btnStartStop.setFont($.NSFont.boldSystemFontOfSize(14));
 
-    createLabel("STATUS", col2X, 310, colW, 16, true, 10, wheelView, true);
-
-    const statusLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col2X, 290, colW, 20));
+    const statusLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col2X, 285, colW, 24));
     statusLabel.setBezeled(false);
     statusLabel.setDrawsBackground(false);
     statusLabel.setEditable(false);
@@ -382,59 +381,25 @@ function run(argv) {
     setCenterText(statusLabel, "Stopped", $.NSColor.secondaryLabelColor);
     wheelView.addSubview(statusLabel);
 
-    createLabel("CURRENT ITEM", col2X, 260, colW, 16, true, 10, wheelView, true);
+    const btnWheelViewLog = createButton("📄 View Last Log", col2X + 20, 205, 150, 36, wheelView);
+    const btnWheelCreateHamster = createButton("✨ Breed Hamster", col2X + 20, 155, 150, 36, wheelView);
 
-    const itemLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col2X, 240, colW, 20));
-    itemLabel.setBezeled(false);
-    itemLabel.setDrawsBackground(false);
-    itemLabel.setEditable(false);
-    itemLabel.setSelectable(false);
-    itemLabel.setFont($.NSFont.systemFontOfSize(11));
-    setCenterText(itemLabel, "None", null);
-    wheelView.addSubview(itemLabel);
+    // --- Column 3: Outbox ---
+    createLabel("📤 Outbox", col3X, 400, colW, 26, true, 16, wheelView, true);
 
-    const detailsLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col2X, 215, colW, 18));
-    detailsLabel.setBezeled(false);
-    detailsLabel.setDrawsBackground(false);
-    detailsLabel.setEditable(false);
-    detailsLabel.setSelectable(false);
-    detailsLabel.setFont($.NSFont.systemFontOfSize(10));
-    setCenterText(detailsLabel, "Idle", $.NSColor.secondaryLabelColor);
-    wheelView.addSubview(detailsLabel);
-
-    const btnWheelViewLog = createButton("📄 View Last Log", col2X + 20, 175, 150, 32, wheelView);
-    const btnWheelCreateHamster = createButton("✨ Breed Hamster", col2X + 20, 135, 150, 32, wheelView);
-
-    // --- Column 3: Output (Outbox) ---
-    createLabel("📤 Output (Outbox)", col3X, 415, colW, 24, true, 15, wheelView, true);
-
-    const outputCountLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col3X, 335, colW, 65));
+    const outputCountLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col3X, 280, colW, 80));
     outputCountLabel.setBezeled(false);
     outputCountLabel.setDrawsBackground(false);
     outputCountLabel.setEditable(false);
     outputCountLabel.setSelectable(false);
-    outputCountLabel.setFont($.NSFont.boldSystemFontOfSize(52));
+    outputCountLabel.setFont($.NSFont.boldSystemFontOfSize(64));
     setCenterText(outputCountLabel, "0", $.NSColor.systemGreenColor);
     wheelView.addSubview(outputCountLabel);
 
-    createLabel("items finished", col3X, 305, colW, 18, false, 12, wheelView, true);
-
-    createLabel("FOLDER", col3X, 260, colW, 16, true, 10, wheelView, true);
-
-    const outputPathDisplay = $.NSTextField.alloc.initWithFrame($.NSMakeRect(col3X, 238, colW, 20));
-    outputPathDisplay.setBezeled(false);
-    outputPathDisplay.setDrawsBackground(false);
-    outputPathDisplay.setEditable(false);
-    outputPathDisplay.setSelectable(false);
-    outputPathDisplay.setFont($.NSFont.systemFontOfSize(12));
-    setCenterText(outputPathDisplay, toDisplayPath(config.outputFolder, config.homeFolder), $.NSColor.secondaryLabelColor);
-    wheelView.addSubview(outputPathDisplay);
-
-    const btnWheelOpenOutput = createButton("📂 Open Outbox", col3X + 20, 180, 150, 34, wheelView);
+    const btnWheelOpenOutput = createButton("📂 Open Outbox", col3X + 20, 205, 150, 36, wheelView);
 
     // Footer
-    const btnWheelOpenHome = createButton("🏠 Open Hamster Home", 15, 20, 180, 30, wheelView);
-    createLabel("The filesystem is the queue. Items process sequentially.", 210, 25, 400, 20, false, 11, wheelView, false);
+    const btnWheelOpenHome = createButton("🏠 Open Hamster Home", 15, 20, 180, 32, wheelView);
 
     // =========================================================================
     // TAB 2: ⚙️ Settings Tab (Clean Flat Form Layout)
@@ -539,9 +504,6 @@ function run(argv) {
         setCenterText(inputCountLabel, "" + inItems.length, $.NSColor.systemBlueColor);
         setCenterText(outputCountLabel, "" + outItems.length, $.NSColor.systemGreenColor);
 
-        setCenterText(inputPathDisplay, toDisplayPath(currentInDir, homeDir), $.NSColor.secondaryLabelColor);
-        setCenterText(outputPathDisplay, toDisplayPath(currentOutDir, homeDir), $.NSColor.secondaryLabelColor);
-
         if (!isWorkerRunning) return;
 
         if (currentTask !== null) {
@@ -564,16 +526,12 @@ function run(argv) {
                     }
                     removePath(claimPath);
 
-                    setCenterText(statusLabel, "Idle (Done " + filename + ")", $.NSColor.systemGreenColor);
-                    setCenterText(itemLabel, "None", null);
-                    setCenterText(detailsLabel, "Successfully finished: " + filename, null);
+                    setCenterText(statusLabel, "Done: " + filename, $.NSColor.systemGreenColor);
                 } else {
                     if (fm.fileExistsAtPath(claimPath)) {
                         movePath(claimPath, origPath);
                     }
                     setCenterText(statusLabel, "Error: " + filename, $.NSColor.systemRedColor);
-                    setCenterText(itemLabel, "Preserved input", null);
-                    setCenterText(detailsLabel, "Agent failed (code " + exitCode + "). Input preserved. Check log.", null);
                 }
 
                 cleanDir(stagingDir);
@@ -588,7 +546,6 @@ function run(argv) {
 
         const items = listDir(inDir);
         if (items.length === 0) {
-            setCenterText(itemLabel, "None (Inbox empty)", null);
             return;
         }
 
@@ -628,7 +585,7 @@ function run(argv) {
 
         const moveSuccess = movePath(selectedItem.path, claimPath);
         if (!moveSuccess) {
-            setCenterText(detailsLabel, "Could not claim item: " + filename, null);
+            setCenterText(statusLabel, "Claim failed: " + filename, $.NSColor.systemRedColor);
             return;
         }
 
@@ -639,8 +596,6 @@ function run(argv) {
         };
 
         setCenterText(statusLabel, "Processing: " + filename, $.NSColor.systemOrangeColor);
-        setCenterText(itemLabel, filename, null);
-        setCenterText(detailsLabel, "Invoking " + config.agent.toUpperCase() + " agent...", null);
 
         let prompt = "Instructions:\n" + config.instructions + "\n\n";
         prompt += "Input item path: " + claimPath + "\n";
@@ -830,11 +785,11 @@ function run(argv) {
                         const outDir = fromDisplayPath(ObjC.unwrap(outputField.stringValue), homeDir);
 
                         if (!inDir) {
-                            setCenterText(detailsLabel, "⚠️ Missing Input Folder.", null);
+                            setCenterText(statusLabel, "Missing Inbox", $.NSColor.systemRedColor);
                             return;
                         }
                         if (!outDir) {
-                            setCenterText(detailsLabel, "⚠️ Missing Output Folder.", null);
+                            setCenterText(statusLabel, "Missing Outbox", $.NSColor.systemRedColor);
                             return;
                         }
 
@@ -852,12 +807,10 @@ function run(argv) {
                         isWorkerRunning = true;
                         btnStartStop.setTitle("⏹ Stop Hamster");
                         setCenterText(statusLabel, "Idle (Watching)", $.NSColor.systemGreenColor);
-                        setCenterText(detailsLabel, "Watching inbox for items.", null);
                     } else {
                         isWorkerRunning = false;
                         btnStartStop.setTitle("▶ Start Hamster");
                         setCenterText(statusLabel, "Stopped", $.NSColor.secondaryLabelColor);
-                        setCenterText(detailsLabel, "Worker stopped by user.", null);
                     }
                 }
             },
@@ -924,8 +877,6 @@ function run(argv) {
                     );
 
                     $.NSWorkspace.sharedWorkspace.openFile(destPath);
-
-                    setCenterText(detailsLabel, "Bred: " + newId + ".command", null);
                 }
             },
             "onOpenStorage:": {
@@ -939,8 +890,6 @@ function run(argv) {
                 implementation: function(sender) {
                     if (fm.fileExistsAtPath(logFile)) {
                         $.NSWorkspace.sharedWorkspace.openFile(logFile);
-                    } else {
-                        setCenterText(detailsLabel, "No log file generated yet.", null);
                     }
                 }
             },

@@ -403,7 +403,7 @@ function run(argv) {
     wheelView.addSubview(detailsLabel);
 
     const btnWheelViewLog = createButton("📄 View Last Log", col2X + 20, 175, 150, 32, wheelView);
-    const btnWheelCreateHamster = createButton("✨ Breed Hamster…", col2X + 20, 135, 150, 32, wheelView);
+    const btnWheelCreateHamster = createButton("✨ Breed Hamster", col2X + 20, 135, 150, 32, wheelView);
 
     // --- Column 3: Output (Outbox) ---
     createLabel("📤 Output (Outbox)", col3X, 415, colW, 24, true, 15, wheelView, true);
@@ -445,29 +445,31 @@ function run(argv) {
     tab2.view = settingsView;
     tabView.addTabViewItem(tab2);
 
-    const sTop = 440;
+    const sTop = 445;
 
-    // Hamster Home
-    createLabel("Hamster Home:", 15, sTop, 120, 20, true, 12, settingsView, false);
-    const homeField = createTextField(config.homeFolder, 140, sTop, 275, 22, settingsView);
+    // Hamster Home Header (Label on left, action buttons on right)
+    createLabel("Hamster Home:", 15, sTop, 150, 20, true, 12, settingsView, false);
     const btnChooseHome = createButton("Choose…", 420, sTop - 2, 78, 26, settingsView);
     const btnOpenHome = createButton("📂 Open", 502, sTop - 2, 83, 26, settingsView);
 
+    // Full Width Hamster Home Path Field
+    const homeField = createTextField(config.homeFolder, 15, sTop - 28, 570, 22, settingsView);
+
     // Input Folder
-    createLabel("Input (Inbox):", 15, sTop - 35, 120, 20, true, 12, settingsView, false);
-    const inputField = createTextField(toDisplayPath(config.inputFolder, config.homeFolder), 140, sTop - 35, 275, 22, settingsView);
-    const btnChooseInput = createButton("Choose…", 420, sTop - 37, 78, 26, settingsView);
-    const btnOpenInput = createButton("📂 Open", 502, sTop - 37, 83, 26, settingsView);
+    createLabel("Input (Inbox):", 15, sTop - 65, 120, 20, true, 12, settingsView, false);
+    const inputField = createTextField(toDisplayPath(config.inputFolder, config.homeFolder), 140, sTop - 65, 275, 22, settingsView);
+    const btnChooseInput = createButton("Choose…", 420, sTop - 67, 78, 26, settingsView);
+    const btnOpenInput = createButton("📂 Open", 502, sTop - 67, 83, 26, settingsView);
 
     // Output Folder
-    createLabel("Output (Outbox):", 15, sTop - 70, 120, 20, true, 12, settingsView, false);
-    const outputField = createTextField(toDisplayPath(config.outputFolder, config.homeFolder), 140, sTop - 70, 275, 22, settingsView);
-    const btnChooseOutput = createButton("Choose…", 420, sTop - 72, 78, 26, settingsView);
-    const btnOpenOutput = createButton("📂 Open", 502, sTop - 72, 83, 26, settingsView);
+    createLabel("Output (Outbox):", 15, sTop - 100, 120, 20, true, 12, settingsView, false);
+    const outputField = createTextField(toDisplayPath(config.outputFolder, config.homeFolder), 140, sTop - 100, 275, 22, settingsView);
+    const btnChooseOutput = createButton("Choose…", 420, sTop - 102, 78, 26, settingsView);
+    const btnOpenOutput = createButton("📂 Open", 502, sTop - 102, 83, 26, settingsView);
 
     // AI Backend
-    createLabel("AI Backend:", 15, sTop - 105, 120, 20, true, 12, settingsView, false);
-    const agentPopup = $.NSPopUpButton.alloc.initWithFramePullsDown($.NSMakeRect(140, sTop - 108, 180, 26), false);
+    createLabel("AI Backend:", 15, sTop - 135, 120, 20, true, 12, settingsView, false);
+    const agentPopup = $.NSPopUpButton.alloc.initWithFramePullsDown($.NSMakeRect(140, sTop - 138, 180, 26), false);
     agentPopup.addItemWithTitle("Gemini (" + (agyPath ? "Installed" : "Not Found") + ")");
     agentPopup.addItemWithTitle("Codex (" + (codexPath ? "Installed" : "Not Found") + ")");
     if (config.agent === "codex") {
@@ -479,17 +481,17 @@ function run(argv) {
 
     createLabel(
         (config.agent === "codex" ? (codexPath || "Codex CLI not found") : (agyPath || "Gemini/Agy CLI not found")),
-        330, sTop - 105, 255, 20, false, 10, settingsView, false
+        330, sTop - 135, 255, 20, false, 10, settingsView, false
     );
 
     // Instructions
-    createLabel("Instructions / Prompt Template:", 15, sTop - 135, 250, 20, true, 12, settingsView, false);
-    const scrollInstr = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(15, sTop - 250, 570, 110));
+    createLabel("Instructions / Prompt Template:", 15, sTop - 165, 250, 20, true, 12, settingsView, false);
+    const scrollInstr = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(15, sTop - 260, 570, 92));
     scrollInstr.setHasVerticalScroller(true);
     scrollInstr.setBorderType($.NSBezelBorder);
 
     const instrTextView = $.NSTextView.alloc.initWithFrame(scrollInstr.contentView.frame);
-    instrTextView.setMinSize($.NSMakeSize(0.0, 110));
+    instrTextView.setMinSize($.NSMakeSize(0.0, 92));
     instrTextView.setMaxSize($.NSMakeSize(10000.0, 10000.0));
     instrTextView.setVerticallyResizable(true);
     instrTextView.setHorizontallyResizable(false);
@@ -500,16 +502,16 @@ function run(argv) {
     settingsView.addSubview(scrollInstr);
 
     // Tools List
-    createLabel("Tools Folders:", 15, sTop - 285, 120, 20, true, 12, settingsView, false);
-    const toolsField = createTextField(config.tools.join("; "), 140, sTop - 285, 295, 22, settingsView);
-    const btnAddTool = createButton("Add Folder…", 440, sTop - 287, 95, 26, settingsView);
-    const btnClearTools = createButton("Clear", 540, sTop - 287, 45, 26, settingsView);
+    createLabel("Tools Folders:", 15, sTop - 295, 120, 20, true, 12, settingsView, false);
+    const toolsField = createTextField(config.tools.join("; "), 140, sTop - 295, 295, 22, settingsView);
+    const btnAddTool = createButton("Add Folder…", 440, sTop - 297, 95, 26, settingsView);
+    const btnClearTools = createButton("Clear", 540, sTop - 297, 45, 26, settingsView);
 
     // Skills List
-    createLabel("Skills Folders:", 15, sTop - 318, 120, 20, true, 12, settingsView, false);
-    const skillsField = createTextField(config.skills.join("; "), 140, sTop - 318, 295, 22, settingsView);
-    const btnAddSkill = createButton("Add Folder…", 440, sTop - 320, 95, 26, settingsView);
-    const btnClearSkills = createButton("Clear", 540, sTop - 320, 45, 26, settingsView);
+    createLabel("Skills Folders:", 15, sTop - 328, 120, 20, true, 12, settingsView, false);
+    const skillsField = createTextField(config.skills.join("; "), 140, sTop - 328, 295, 22, settingsView);
+    const btnAddSkill = createButton("Add Folder…", 440, sTop - 330, 95, 26, settingsView);
+    const btnClearSkills = createButton("Clear", 540, sTop - 330, 45, 26, settingsView);
 
     // Settings Footer Buttons
     const btnSave = createButton("💾 Save Configuration", 15, 20, 175, 36, settingsView);
@@ -840,7 +842,6 @@ function run(argv) {
                         makeDir(inDir);
                         makeDir(outDir);
 
-                        config.name = ObjC.unwrap(nameField.stringValue);
                         config.homeFolder = homeDir;
                         config.inputFolder = inDir;
                         config.outputFolder = outDir;
@@ -863,77 +864,68 @@ function run(argv) {
             "onSave:": {
                 types: ["void", ["id"]],
                 implementation: function(sender) {
-                    config.name = ObjC.unwrap(nameField.stringValue);
                     config.homeFolder = ObjC.unwrap(homeField.stringValue).trim() || config.homeFolder;
                     config.inputFolder = fromDisplayPath(ObjC.unwrap(inputField.stringValue), config.homeFolder);
                     config.outputFolder = fromDisplayPath(ObjC.unwrap(outputField.stringValue), config.homeFolder);
                     config.instructions = ObjC.unwrap(instrTextView.string);
                     config.agent = (agentPopup.indexOfSelectedItem === 1 ? "codex" : "gemini");
                     saveConfig();
-                    win.setTitle("🐹 " + config.name + " (" + hamsterId + ")");
                     settingsFeedbackLabel.setStringValue("Saved at " + new Date().toLocaleTimeString());
                 }
             },
             "onCreateHamster:": {
                 types: ["void", ["id"]],
                 implementation: function(sender) {
-                    const savePanel = $.NSSavePanel.savePanel;
-                    savePanel.setTitle("Breed New Hamster");
-                    savePanel.setMessage("Choose location and name for the new Hamster worker to breed");
-                    savePanel.setNameFieldStringValue("Hamster-" + (Math.random().toString(36).substring(2, 6)) + ".command");
-                    savePanel.setAllowedFileTypes($([ "command" ]));
+                    const currentDir = scriptPath.substring(0, scriptPath.lastIndexOf("/"));
+                    const newId = "hamster-" + (Math.random().toString(36).substring(2, 10));
+                    const destPath = currentDir + "/" + newId + ".command";
 
-                    if (savePanel.runModal == $.NSModalResponseOK) {
-                        const destPath = ObjC.unwrap(savePanel.URL.path);
-                        const newId = "hamster-" + (Math.random().toString(36).substring(2, 10));
+                    const ownCode = $.NSString.stringWithContentsOfFileEncodingError(scriptPath, $.NSUTF8StringEncoding, $());
+                    let codeStr = ObjC.unwrap(ownCode);
+                    codeStr = codeStr.replace(/HAMSTER_ID="[^"]*"/, 'HAMSTER_ID="' + newId + '"');
 
-                        const ownCode = $.NSString.stringWithContentsOfFileEncodingError(scriptPath, $.NSUTF8StringEncoding, $());
-                        let codeStr = ObjC.unwrap(ownCode);
-                        codeStr = codeStr.replace(/HAMSTER_ID="[^"]*"/, 'HAMSTER_ID="' + newId + '"');
+                    const nsCode = $.NSString.stringWithString(codeStr);
+                    nsCode.writeToFileAtomicallyEncodingError(destPath, true, $.NSUTF8StringEncoding, $());
 
-                        const nsCode = $.NSString.stringWithString(codeStr);
-                        nsCode.writeToFileAtomicallyEncodingError(destPath, true, $.NSUTF8StringEncoding, $());
+                    const task = $.NSTask.alloc.init;
+                    task.setLaunchPath("/bin/chmod");
+                    task.setArguments($([ "+x", destPath ]));
+                    task.launch;
+                    task.waitUntilExit;
 
-                        const task = $.NSTask.alloc.init;
-                        task.setLaunchPath("/bin/chmod");
-                        task.setArguments($([ "+x", destPath ]));
-                        task.launch;
-                        task.waitUntilExit;
+                    const newHamsterDir = hamsterDir.replace(hamsterId, newId);
+                    makeDir(newHamsterDir + "/work/claim");
+                    makeDir(newHamsterDir + "/work/output_staging");
 
-                        const newHamsterDir = hamsterDir.replace(hamsterId, newId);
-                        makeDir(newHamsterDir + "/work/claim");
-                        makeDir(newHamsterDir + "/work/output_staging");
+                    const newName = "Hamster " + newId.replace("hamster-", "");
+                    const newSafeName = newName.replace(/\s+/g, "_");
+                    const newHome = userHome + "/Hamsters/" + newSafeName;
+                    const newInbox = newHome + "/inbox";
+                    const newOutbox = newHome + "/outbox";
 
-                        const newName = "Hamster " + newId.replace("hamster-", "");
-                        const newSafeName = newName.replace(/\s+/g, "_");
-                        const newHome = userHome + "/Hamsters/" + newSafeName;
-                        const newInbox = newHome + "/inbox";
-                        const newOutbox = newHome + "/outbox";
+                    makeDir(newHome);
+                    makeDir(newInbox);
+                    makeDir(newOutbox);
 
-                        makeDir(newHome);
-                        makeDir(newInbox);
-                        makeDir(newOutbox);
+                    const newConfig = Object.assign({}, config, {
+                        name: newName,
+                        homeFolder: newHome,
+                        inputFolder: newInbox,
+                        outputFolder: newOutbox
+                    });
 
-                        const newConfig = Object.assign({}, config, {
-                            name: newName,
-                            homeFolder: newHome,
-                            inputFolder: newInbox,
-                            outputFolder: newOutbox
-                        });
+                    const newConfigStr = $.NSString.stringWithString(JSON.stringify(newConfig, null, 2));
+                    newConfigStr.writeToFileAtomicallyEncodingError(
+                        newHamsterDir + "/config.json", true, $.NSUTF8StringEncoding, $()
+                    );
+                    const newLocStr = $.NSString.stringWithString(destPath);
+                    newLocStr.writeToFileAtomicallyEncodingError(
+                        newHamsterDir + "/location.txt", true, $.NSUTF8StringEncoding, $()
+                    );
 
-                        const newConfigStr = $.NSString.stringWithString(JSON.stringify(newConfig, null, 2));
-                        newConfigStr.writeToFileAtomicallyEncodingError(
-                            newHamsterDir + "/config.json", true, $.NSUTF8StringEncoding, $()
-                        );
-                        const newLocStr = $.NSString.stringWithString(destPath);
-                        newLocStr.writeToFileAtomicallyEncodingError(
-                            newHamsterDir + "/location.txt", true, $.NSUTF8StringEncoding, $()
-                        );
+                    $.NSWorkspace.sharedWorkspace.openFile(destPath);
 
-                        $.NSWorkspace.sharedWorkspace.openFile(destPath);
-
-                        setCenterText(detailsLabel, "Bred and launched: " + destPath, null);
-                    }
+                    setCenterText(detailsLabel, "Bred: " + newId + ".command", null);
                 }
             },
             "onOpenStorage:": {

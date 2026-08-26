@@ -27,3 +27,4 @@ Hamster-*.command
 
 # Agent customizations & local playbooks
 .agents/
+AGENTS.md

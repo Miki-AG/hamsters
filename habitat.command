@@ -82,6 +82,10 @@ function run(argv) {
         nsStr.writeToFileAtomicallyEncodingError(file, true, $.NSUTF8StringEncoding, $());
     }
 
+    function shellQuote(value) {
+        return "'" + String(value).replace(/'/g, "'\\''") + "'";
+    }
+
     function isProcessRunning(pid) {
         if (!pid) return false;
         return ($.kill(parseInt(pid, 10), 0) === 0);
@@ -236,7 +240,7 @@ function run(argv) {
         if (fm.fileExistsAtPath(targetScript)) {
             const task = $.NSTask.alloc.init;
             task.setLaunchPath("/bin/zsh");
-            const cmd = "nohup " + JSON.stringify(targetScript) + " --gui-worker --headless >/dev/null 2>&1 &";
+            const cmd = "nohup " + shellQuote(targetScript) + " --gui-worker --headless >/dev/null 2>&1 &";
             task.setArguments($([ "-c", cmd ]));
             task.launch;
         }
@@ -357,8 +361,18 @@ function run(argv) {
                     const currentDir = scriptPath.substring(0, scriptPath.lastIndexOf("/"));
                     const canonicalHamster = currentDir + "/hamster.command";
                     if (fm.fileExistsAtPath(canonicalHamster)) {
-                        $.NSWorkspace.sharedWorkspace.openFile(canonicalHamster);
-                        setTimeout(renderHamsters, 600);
+                        const newId = "hamster-" + Math.random().toString(36).substring(2, 10);
+                        const destPath = currentDir + "/" + newId + ".command";
+                        const source = $.NSString.stringWithContentsOfFileEncodingError(canonicalHamster, $.NSUTF8StringEncoding, $());
+                        const code = ObjC.unwrap(source).replace(/HAMSTER_ID="[^"]*"/, 'HAMSTER_ID="' + newId + '"');
+                        $.NSString.stringWithString(code).writeToFileAtomicallyEncodingError(destPath, true, $.NSUTF8StringEncoding, $());
+                        const chmod = $.NSTask.alloc.init;
+                        chmod.setLaunchPath("/bin/chmod");
+                        chmod.setArguments($([ "+x", destPath ]));
+                        chmod.launch;
+                        chmod.waitUntilExit;
+                        $.NSWorkspace.sharedWorkspace.openFile(destPath);
+                        renderHamsters();
                     } else {
                         summaryLabel.setStringValue("⚠️ hamster.command not found in current folder.");
                     }

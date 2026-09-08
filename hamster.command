@@ -168,6 +168,19 @@ function run(argv) {
         return fm.moveItemAtPathToPathError(src, dest, $());
     }
 
+    function restoreClaim(claimPath, originalPath) {
+        if (!fm.fileExistsAtPath(originalPath)) {
+            return movePath(claimPath, originalPath);
+        }
+        let recoveredPath = originalPath + ".hamster-recovered";
+        let suffix = 2;
+        while (fm.fileExistsAtPath(recoveredPath)) {
+            recoveredPath = originalPath + ".hamster-recovered-" + suffix;
+            suffix++;
+        }
+        return movePath(claimPath, recoveredPath);
+    }
+
     function getAttrs(path) {
         if (!path || !fm.fileExistsAtPath(path)) return null;
         return fm.attributesOfItemAtPathError(path, $());
@@ -178,6 +191,10 @@ function run(argv) {
         for (let item of items) {
             removePath(dir + "/" + item);
         }
+    }
+
+    function shellQuote(value) {
+        return "'" + String(value).replace(/'/g, "'\\''") + "'";
     }
 
     function toDisplayPath(fullPath, homePath) {
@@ -249,6 +266,16 @@ function run(argv) {
     makeDir(config.homeFolder);
     makeDir(config.inputFolder);
     makeDir(config.outputFolder);
+
+    function recoverClaims() {
+        for (let filename of listDir(hamsterDir + "/work/claim")) {
+            if (filename.startsWith(".") || filename.endsWith(".tmp")) continue;
+            const claimPath = hamsterDir + "/work/claim/" + filename;
+            const originalPath = config.inputFolder + "/" + filename;
+            restoreClaim(claimPath, originalPath);
+        }
+    }
+    recoverClaims();
 
     function saveConfig() {
         const jsonStr = JSON.stringify(config, null, 2);
@@ -594,20 +621,6 @@ function run(argv) {
         setLeftText(inputCountLabel, "" + inItems.length, $.NSColor.systemBlueColor);
         setLeftText(outputCountLabel, "" + outItems.length, $.NSColor.systemGreenColor);
 
-        const isRunning = getWorkerState();
-        if (!isRunning) {
-            btnStartStop.setTitle("▶ Start Hamster");
-            if (currentTask === null) {
-                setCenterText(statusLabel, "Stopped", $.NSColor.secondaryLabelColor);
-            }
-            return;
-        } else {
-            btnStartStop.setTitle("⏹ Stop Hamster");
-            if (currentTask === null && (statusLabel.stringValue.js === "Stopped" || !statusLabel.stringValue.js)) {
-                setCenterText(statusLabel, "Idle (Watching)", $.NSColor.systemGreenColor);
-            }
-        }
-
         if (currentTask !== null) {
             if (!currentTask.isRunning) {
                 const exitCode = currentTask.terminationStatus;
@@ -619,28 +632,56 @@ function run(argv) {
 
                 const stagingItems = listDir(stagingDir);
                 let hasOutput = (stagingItems.length > 0);
+                let preserveStaging = false;
 
                 if (exitCode === 0 && hasOutput) {
+                    const delivered = [];
+                    let deliverySucceeded = true;
                     for (let item of stagingItems) {
                         const src = stagingDir + "/" + item;
                         const dest = outDir + "/" + item;
-                        movePath(src, dest);
+                        if (fm.fileExistsAtPath(dest)) {
+                            deliverySucceeded = false;
+                            break;
+                        }
+                        if (movePath(src, dest)) delivered.push({ src: src, dest: dest });
+                        else {
+                            deliverySucceeded = false;
+                            break;
+                        }
                     }
-                    removePath(claimPath);
-
-                    setCenterText(statusLabel, "Done: " + filename, $.NSColor.systemGreenColor);
+                    if (deliverySucceeded) {
+                        removePath(claimPath);
+                        setCenterText(statusLabel, "Done: " + filename, $.NSColor.systemGreenColor);
+                    } else {
+                        for (let item of delivered) movePath(item.dest, item.src);
+                        if (fm.fileExistsAtPath(claimPath)) restoreClaim(claimPath, origPath);
+                        preserveStaging = true;
+                        setCenterText(statusLabel, "Error delivering: " + filename, $.NSColor.systemRedColor);
+                    }
                 } else {
                     if (fm.fileExistsAtPath(claimPath)) {
-                        movePath(claimPath, origPath);
+                        restoreClaim(claimPath, origPath);
                     }
                     setCenterText(statusLabel, "Error: " + filename, $.NSColor.systemRedColor);
                 }
 
-                cleanDir(stagingDir);
+                if (!preserveStaging) cleanDir(stagingDir);
                 currentTask = null;
                 activeClaimItem = null;
             }
             return;
+        }
+
+        const isRunning = getWorkerState();
+        if (!isRunning) {
+            btnStartStop.setTitle("▶ Start Hamster");
+            setCenterText(statusLabel, "Stopped", $.NSColor.secondaryLabelColor);
+            return;
+        }
+        btnStartStop.setTitle("⏹ Stop Hamster");
+        if (statusLabel.stringValue.js === "Stopped" || !statusLabel.stringValue.js) {
+            setCenterText(statusLabel, "Idle (Watching)", $.NSColor.systemGreenColor);
         }
 
         const inDir = config.inputFolder;
@@ -682,9 +723,14 @@ function run(argv) {
         const claimPath = hamsterDir + "/work/claim/" + filename;
         const stagingDir = hamsterDir + "/work/output_staging";
 
-        cleanDir(stagingDir);
-        cleanDir(hamsterDir + "/work/claim");
-
+        if (listDir(stagingDir).length > 0) {
+            setCenterText(statusLabel, "Unfinished output needs review", $.NSColor.systemRedColor);
+            return;
+        }
+        if (fm.fileExistsAtPath(claimPath)) {
+            setCenterText(statusLabel, "Unfinished claim needs review", $.NSColor.systemRedColor);
+            return;
+        }
         const moveSuccess = movePath(selectedItem.path, claimPath);
         if (!moveSuccess) {
             setCenterText(statusLabel, "Claim failed: " + filename, $.NSColor.systemRedColor);
@@ -717,17 +763,20 @@ function run(argv) {
         let agentCmd = "";
         let addDirArgs = "";
         config.tools.concat(config.skills).forEach(d => {
-            if (d) addDirArgs += " --add-dir " + JSON.stringify(d);
+            if (d) addDirArgs += " --add-dir " + shellQuote(d);
         });
 
         if (config.agent === "codex" && codexPath) {
-            agentCmd = codexPath + " exec " + JSON.stringify(prompt) + " --cd " + JSON.stringify(stagingDir) + addDirArgs + " > " + JSON.stringify(logFile) + " 2>&1";
+            agentCmd = shellQuote(codexPath) + " exec " + shellQuote(prompt) + " --cd " + shellQuote(stagingDir) + addDirArgs + " > " + shellQuote(logFile) + " 2>&1";
         } else if (config.agent === "claude" && claudePath) {
-            agentCmd = "cd " + JSON.stringify(stagingDir) + " && " + claudePath + " -p --dangerously-skip-permissions " + JSON.stringify(prompt) + " > " + JSON.stringify(logFile) + " 2>&1";
-        } else if (agyPath) {
-            agentCmd = agyPath + " --print --dangerously-skip-permissions " + JSON.stringify(prompt) + addDirArgs + " > " + JSON.stringify(logFile) + " 2>&1";
+            agentCmd = "cd " + shellQuote(stagingDir) + " && " + shellQuote(claudePath) + " -p --dangerously-skip-permissions " + shellQuote(prompt) + " > " + shellQuote(logFile) + " 2>&1";
+        } else if (config.agent === "gemini" && agyPath) {
+            agentCmd = shellQuote(agyPath) + " --print --dangerously-skip-permissions " + shellQuote(prompt) + addDirArgs + " > " + shellQuote(logFile) + " 2>&1";
         } else {
-            agentCmd = "echo 'Processing without CLI...' > " + JSON.stringify(logFile) + "; cp -R " + JSON.stringify(claimPath) + " " + JSON.stringify(stagingDir + "/processed_" + filename);
+            restoreClaim(claimPath, selectedItem.path);
+            activeClaimItem = null;
+            setCenterText(statusLabel, "Selected CLI not found", $.NSColor.systemRedColor);
+            return;
         }
 
         task.setArguments($([ "-c", agentCmd ]));
@@ -1033,7 +1082,7 @@ function run(argv) {
                                 currentTask.terminate;
                             }
                             if (activeClaimItem && fm.fileExistsAtPath(activeClaimItem.claimPath)) {
-                                movePath(activeClaimItem.claimPath, activeClaimItem.origPath);
+                                restoreClaim(activeClaimItem.claimPath, activeClaimItem.origPath);
                             }
                             removePath(pidFile);
                             app.terminate(null);

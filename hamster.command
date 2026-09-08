@@ -586,14 +586,14 @@ function run(argv) {
     // Tools List
     createLabel("Tools Folders:", 15, sTop - 308, 120, 20, true, 12, settingsView, false);
     const toolsField = createTextField(config.tools.join("; "), 140, sTop - 308, 295, 22, settingsView);
-    const btnAddTool = createButton("Add Folder…", 440, sTop - 310, 95, 26, settingsView);
-    const btnClearTools = createButton("Clear", 540, sTop - 310, 45, 26, settingsView);
+    const btnAddTool = createButton("Add Folder…", 390, sTop - 310, 125, 26, settingsView);
+    const btnClearTools = createButton("Clear", 520, sTop - 310, 70, 26, settingsView);
 
     // Skills List
     createLabel("Skills Folders:", 15, sTop - 340, 120, 20, true, 12, settingsView, false);
     const skillsField = createTextField(config.skills.join("; "), 140, sTop - 340, 295, 22, settingsView);
-    const btnAddSkill = createButton("Add Folder…", 440, sTop - 342, 95, 26, settingsView);
-    const btnClearSkills = createButton("Clear", 540, sTop - 342, 45, 26, settingsView);
+    const btnAddSkill = createButton("Add Folder…", 390, sTop - 342, 125, 26, settingsView);
+    const btnClearSkills = createButton("Clear", 520, sTop - 342, 70, 26, settingsView);
 
     // Settings Footer Buttons
     const btnSave = createButton("💾 Save Configuration", 15, 20, 175, 36, settingsView);

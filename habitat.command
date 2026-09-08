@@ -147,11 +147,11 @@ function run(argv) {
 
     // Top Header
     createLabel("🐹 Hamster Habitat", 20, winHeight - 38, 200, 26, true, 17, contentView);
-    const summaryLabel = createLabel("Loading workers…", 195, winHeight - 35, 230, 20, false, 11, contentView);
+    const summaryLabel = createLabel("Loading workers…", 195, winHeight - 35, 150, 20, false, 11, contentView);
     summaryLabel.setTextColor($.NSColor.secondaryLabelColor);
 
     // Fleet Actions in Header
-    const btnStartAll = createButton("▶ Start All", winWidth - 280, winHeight - 40, 85, 28, contentView);
+    const btnStartAll = createButton("Start All", winWidth - 280, winHeight - 40, 85, 28, contentView);
     const btnStopAll = createButton("⏹ Stop All", winWidth - 190, winHeight - 40, 85, 28, contentView);
     const btnBreed = createButton("✨ Breed", winWidth - 100, winHeight - 40, 85, 28, contentView);
     btnBreed.setFont($.NSFont.boldSystemFontOfSize(12));
@@ -250,17 +250,13 @@ function run(argv) {
         const hamsters = scanHamsters();
         cachedHamsters = hamsters;
 
-        let totalIn = 0;
-        let totalOut = 0;
         let activeWorkers = 0;
 
         hamsters.forEach(h => {
-            totalIn += h.inCount;
-            totalOut += h.outCount;
             if (h.isWorkerRunning) activeWorkers++;
         });
 
-        summaryLabel.setStringValue(hamsters.length + " Hamsters (" + activeWorkers + " active) • 📥 " + totalIn + " • 📤 " + totalOut);
+        summaryLabel.setStringValue(hamsters.length + " Hamsters (" + activeWorkers + " active)");
 
         // Clear subviews
         const subviews = listContainer.subviews;

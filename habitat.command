@@ -109,7 +109,7 @@ function run(argv) {
     const winHeight = 500;
     const win = $.NSWindow.alloc.initWithContentRectStyleMaskBackingDefer(
         $.NSMakeRect(200, 200, winWidth, winHeight),
-        $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable | $.NSWindowStyleMaskMiniaturizable | $.NSWindowStyleMaskResizable,
+        $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable | $.NSWindowStyleMaskMiniaturizable,
         $.NSBackingStoreBuffered,
         false
     );

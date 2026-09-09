@@ -6,7 +6,7 @@ No installer, server or third-party libraries. Open `main-colony/` and double-cl
 
 Give it an inbox, an outbox, and a prompt. Drop a file into the inbox. Hamster runs your AI CLI and puts the results in the outbox.
 
-Connect one worker's outbox to another's inbox to chain tasks.
+Hamsters are composable. Connect one worker's outbox to another's inbox to chain tasks.
 
 Requires macOS and an installed, authenticated Gemini, Claude, or Codex CLI.\*\* Hamster adds no dependencies beyond those tools and what ships with macOS.
 

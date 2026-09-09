@@ -75,51 +75,69 @@ For development, run `node tests/colonies.cjs` on macOS to check registration, c
 
 ---
 
-## 🏗️ Chaining Hamsters: Building Workflows
+## Workflows built from folders
 
-Hamsters read and write regular Mac folders. Point one Hamster's **Outbox** to another Hamster's **Inbox** to pass results to the next worker.
+Set one Hamster's **Outbox** and the next Hamster's **Inbox** to the same folder. Every handoff below is a file in that folder. Workers process one input item at a time, so each handoff must include all the context the next worker needs. Use a unique filename for each job.
 
-### 1. The Assembly Line
-Chain Hamsters sequentially to handle multi-step tasks.
+These are workflows you can configure through prompts and folder settings. Agents can use the tools available through your AI CLI, including Git, web lookup, SSH, and local scripts. Configure the required tools, credentials, and file access for each worker. Hamster itself adds no tool dependencies.
 
-```mermaid
-flowchart LR
-    A["🐹 Audio Hamster<br/><i>Transcribes voice note</i>"] -->|"Outbox ➔ Inbox"| B["🐹 Summary Hamster<br/><i>Extracts action items</i>"]
-    B -->|"Outbox ➔ Inbox"| C["🐹 Format Hamster<br/><i>Creates clean Markdown</i>"]
-```
+### 1. Meeting follow-up
 
-### 2. The Specialist Crew
-Give each specialist its own inbox and prompt. Put code, images, and receipts into the appropriate folders yourself, or use a separate routing step. Hamster does not automatically route files by type.
-
-```mermaid
-flowchart TD
-    Code["📥 Code inbox"] --> H1["🐹 Code Refactorer"]
-    Images["📥 Images inbox"] --> H2["🐹 Image Captioner"]
-    Receipts["📥 Receipts inbox"] --> H3["🐹 Receipt Parser"]
-```
-
-Workers sharing an inbox compete for files: the first worker to claim a file processes it. Sharing an inbox does not send each file to every worker or select a specialist for it.
-
-### 3. The Editorial Board
-Several researcher Hamsters dump findings into the inbox of an Editor Hamster, who combines everything into a single briefing.
-
-```mermaid
-flowchart TD
-    H1["🐹 Tech Researcher"] --> Editor["🐹 Chief Editor"]
-    H2["🐹 Market Researcher"] --> Editor
-    H3["🐹 Legal Analyst"] --> Editor
-    Editor --> Final["📤 Final Executive Brief"]
-```
-
-### 4. The Quality Inspector (Feedback Loop)
-A creator Hamster drafts content, and a critic Hamster checks the quality before passing it to production.
+Put a meeting transcript in the first inbox. The summarizer writes one Markdown file containing the meeting context, decisions, action items, owners, and deadlines. The email drafter turns that file into a follow-up email for you to review and send.
 
 ```mermaid
 flowchart LR
-    Creator["🐹 Writer Hamster"] -->|"Draft"| Critic["🐹 Critic Hamster"]
-    Critic -->|"Looks good!"| Done["📤 Published"]
-    Critic -.->|"Needs work"| Creator
+    Inbox["Inbox<br/>Meeting transcript"] --> Summarizer(["Summarizer"])
+    Summarizer --> Handoff["Outbox / Inbox<br/>Meeting summary"]
+    Handoff --> Drafter(["Email drafter"])
+    Drafter --> Outbox["Outbox<br/>Follow-up email draft"]
 ```
+
+### 2. Release notes
+
+Drop in a request file specifying the repository, commit range, and intended audience. The Git researcher uses Git to inspect that range and writes a change report with the request details and supporting commit references. The release-note writer uses the report to draft release notes for review.
+
+```mermaid
+flowchart LR
+    Inbox["Inbox<br/>Release request"] --> Researcher(["Git researcher"])
+    Researcher --> Handoff["Outbox / Inbox<br/>Change report"]
+    Handoff --> Writer(["Release-note writer"])
+    Writer --> Outbox["Outbox<br/>Release notes draft"]
+```
+
+Give the researcher access to the repository. Use a separate checkout for each worker that changes repository files.
+
+### 3. Outbound sales email drafts
+
+Each prospect file names a company, its website, and your product or offer. The company researcher checks public webpages to identify a relevant contact, their role, and a concrete reason the company could benefit. It writes one research file containing the offer, findings, source URLs, and any uncertainty about contact details.
+
+The email drafter uses that file to write a personalized subject line and email for your review. Instruct it to flag missing contact information rather than invent an address. The output is a draft; sending is a separate step.
+
+```mermaid
+flowchart LR
+    Inbox["Inbox<br/>Company and offer"] --> Researcher(["Company researcher"])
+    Researcher --> Handoff["Outbox / Inbox<br/>Contact and company research"]
+    Handoff --> Drafter(["Email drafter"])
+    Drafter --> Outbox["Outbox<br/>Sales email draft"]
+```
+
+### 4. Automated Obsidian indexing
+
+Drop copies of PDFs, notes, saved webpages, images, or recordings into the first inbox. The content normalizer uses the extraction, OCR, or transcription tools you have configured to produce one self-contained Markdown file per input, including source details. Keep originals elsewhere if you need to retain them: Hamster consumes successfully processed inputs.
+
+The vault indexer reads each Markdown file, creates or updates a note in your configured Obsidian vault, adds tags and links, and updates an index note. It uses file tools to make those vault edits, then writes a receipt to its outbox identifying the files changed. Configure it to recognize previously indexed sources so retries update existing notes.
+
+```mermaid
+flowchart LR
+    Inbox["Inbox<br/>Mixed source files"] --> Normalizer(["Content normalizer"])
+    Normalizer --> Handoff["Outbox / Inbox<br/>Normalized Markdown"]
+    Handoff --> Indexer(["Vault indexer"])
+    Indexer --> Outbox["Outbox<br/>Indexing receipt"]
+```
+
+Give the indexer access to the vault and use one indexer per vault to avoid competing edits to the index. The vault is a separate destination edited by that agent; the receipt is its output for the Hamster workflow.
+
+Each workflow has a dedicated inbox per stage. Workers sharing an inbox compete for files; sharing does not broadcast a file to every worker or select a specialist automatically.
 
 ---
 

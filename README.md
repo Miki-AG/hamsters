@@ -8,7 +8,7 @@ Give it an inbox, an outbox, and a prompt. Drop a file into the inbox. Hamster r
 
 Hamsters are composable. Connect one worker's outbox to another's inbox to chain tasks.
 
-Requires macOS and an installed, authenticated Gemini, Claude, or Codex CLI.\*\* Hamster adds no dependencies beyond those tools and what ships with macOS.
+Requires macOS and an installed, authenticated Gemini, Claude, or Codex CLI. Hamster adds no dependencies beyond those tools and what ships with macOS.
 
 | A single worker                                                                                    | A colony in Habitat                                                            |
 | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |

@@ -5,13 +5,13 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const project = path.resolve(__dirname, '..');
-const workerSource = fs.readFileSync(path.join(project, 'main-colony/hamster.command'), 'utf8');
-const habitatSource = fs.readFileSync(path.join(project, 'main-colony/habitat.command'), 'utf8');
+const workerSource = fs.readFileSync(path.join(project, 'main.colony/hamster.command'), 'utf8');
+const habitatSource = fs.readFileSync(path.join(project, 'main.colony/habitat.command'), 'utf8');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hamster-colonies-'));
 const storage = path.join(root, 'state');
 const userHome = path.join(root, 'user');
-const original = path.join(root, "main colony's folder");
-const copied = path.join(root, 'research colony');
+const original = path.join(root, "main colony's folder.colony");
+const copied = path.join(root, 'research.colony');
 
 function section(source, start, end) {
     const offset = source.indexOf(start);
@@ -83,7 +83,7 @@ try {
     fs.writeFileSync(path.join(original, 'hamster.command'), testSource, { mode: 0o755 });
     fs.writeFileSync(path.join(original, 'hamster-second.command'),
         testSource.replace(/^HAMSTER_ID=.*$/m, 'HAMSTER_ID="hamster-test-second"'), { mode: 0o755 });
-    fs.copyFileSync(path.join(project, 'main-colony/habitat.command'), path.join(original, 'habitat.command'));
+    fs.copyFileSync(path.join(project, 'main.colony/habitat.command'), path.join(original, 'habitat.command'));
 
     const first = habitat(original, 'register');
     assert.equal(first.length, 2);

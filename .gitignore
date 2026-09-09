@@ -12,8 +12,8 @@ hamster-*.command
 Hamster-*.command
 
 # Local colonies (keep the canonical colony)
-/*-colony/
-!/main-colony/
+/*.colony/
+!/main.colony/
 
 # Logs and Runtime State
 *.log

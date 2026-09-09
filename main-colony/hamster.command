@@ -31,27 +31,33 @@ BASE_STORAGE="$HOME/Library/Application Support/Hamsters"
 # ------------------------------------------------------------------------------
 if [ "$HAMSTER_ID" = "HAMSTER_ID_PLACEHOLDER" ] || [ -z "$HAMSTER_ID" ]; then
     NEW_ID="hamster-$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)"
+    sed -i '' "s/^HAMSTER_ID=.*/HAMSTER_ID=\"$NEW_ID\"/" "$SCRIPT_PATH" || exit 1
     HAMSTER_ID="$NEW_ID"
-    # Update own file to lock in identity
-    sed -i '' "s/HAMSTER_ID=\"HAMSTER_ID_PLACEHOLDER\"/HAMSTER_ID=\"$NEW_ID\"/g" "$SCRIPT_PATH" 2>/dev/null || true
 fi
 
 HAMSTER_DIR="$BASE_STORAGE/$HAMSTER_ID"
 LOC_FILE="$HAMSTER_DIR/location.txt"
 PID_FILE="$HAMSTER_DIR/app.pid"
 
-# If state folder exists but points to a different physical path, this file was manually duplicated in Finder!
+# A missing previous location means the script moved; an existing one means it was copied.
 if [ -f "$LOC_FILE" ]; then
     REGISTERED_PATH=$(cat "$LOC_FILE" 2>/dev/null)
-    if [ "$REGISTERED_PATH" != "$SCRIPT_PATH" ] && [ -n "$REGISTERED_PATH" ]; then
+    if [ "$REGISTERED_PATH" != "$SCRIPT_PATH" ] && [ -f "$REGISTERED_PATH" ]; then
         # Spawn a new independent ID for this clone
         CLONE_ID="hamster-$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)"
-        sed -i '' "s/HAMSTER_ID=\"$HAMSTER_ID\"/HAMSTER_ID=\"$CLONE_ID\"/g" "$SCRIPT_PATH" 2>/dev/null || true
+        sed -i '' "s/^HAMSTER_ID=.*/HAMSTER_ID=\"$CLONE_ID\"/" "$SCRIPT_PATH" || exit 1
         HAMSTER_ID="$CLONE_ID"
         HAMSTER_DIR="$BASE_STORAGE/$HAMSTER_ID"
         LOC_FILE="$HAMSTER_DIR/location.txt"
         PID_FILE="$HAMSTER_DIR/app.pid"
     fi
+fi
+
+mkdir -p "$HAMSTER_DIR/work/claim" "$HAMSTER_DIR/work/output_staging" || exit 1
+printf '%s\n' "$SCRIPT_PATH" > "$LOC_FILE" || exit 1
+
+if [ "$1" = "--register" ]; then
+    exit 0
 fi
 
 # ------------------------------------------------------------------------------
@@ -67,9 +73,6 @@ if [ "$1" != "--gui-worker" ]; then
     end tell' 2>/dev/null &
     exit 0
 fi
-
-mkdir -p "$HAMSTER_DIR/work/claim" "$HAMSTER_DIR/work/output_staging"
-echo "$SCRIPT_PATH" > "$LOC_FILE"
 
 # ------------------------------------------------------------------------------
 # 2. Single-Instance Enforcement per Hamster

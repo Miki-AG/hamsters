@@ -33,6 +33,8 @@ function run(argv) {
     ObjC.import("Cocoa");
 
     const scriptPath = argv[0];
+    const colonyDir = scriptPath.substring(0, scriptPath.lastIndexOf("/"));
+    const colonyName = colonyDir.substring(colonyDir.lastIndexOf("/") + 1);
     const fm = $.NSFileManager.defaultManager;
     const userHome = "/Users/" + $.NSUserName().js;
     const baseStorage = userHome + "/Library/Application Support/Hamsters";
@@ -114,7 +116,7 @@ function run(argv) {
         false
     );
 
-    win.setTitle("🐹 Hamster Habitat");
+    win.setTitle("🐹 Hamster Habitat: " + colonyName);
     win.setReleasedWhenClosed(false);
     win.center;
 
@@ -173,6 +175,20 @@ function run(argv) {
     // -------------------------------------------------------------------------
     let cachedHamsters = [];
 
+    function registerColonyHamsters() {
+        for (let name of listDir(colonyDir)) {
+            if (name !== "hamster.command" && !/^hamster-.+\.command$/.test(name)) continue;
+            const task = $.NSTask.alloc.init;
+            task.setLaunchPath("/bin/bash");
+            task.setArguments($([colonyDir + "/" + name, "--register"]));
+            task.launch;
+            task.waitUntilExit;
+            if (task.terminationStatus !== 0) {
+                throw new Error("Could not register " + name);
+            }
+        }
+    }
+
     function scanHamsters() {
         makeDir(baseStorage);
         const dirs = listDir(baseStorage);
@@ -185,6 +201,8 @@ function run(argv) {
             const pidFile = hDir + "/app.pid";
             const locFile = hDir + "/location.txt";
             const stateFile = hDir + "/state.txt";
+            const scriptLoc = readText(locFile);
+            if (scriptLoc.substring(0, scriptLoc.lastIndexOf("/")) !== colonyDir || !fm.fileExistsAtPath(scriptLoc)) continue;
 
             const cfg = readJSON(cfgFile) || {};
             const stateStr = readText(stateFile);
@@ -201,12 +219,7 @@ function run(argv) {
                 } catch (e) {}
             }
 
-            let scriptLoc = null;
-            if (fm.fileExistsAtPath(locFile)) {
-                scriptLoc = readText(locFile);
-            }
-
-            const homeDir = cfg.homeFolder || (userHome + "/Hamsters/" + (cfg.name || id).replace(/\s+/g, "_"));
+            const homeDir = cfg.homeFolder || (userHome + "/Hamsters/" + (cfg.name || ("Hamster " + id.replace("hamster-", ""))).replace(/\s+/g, "_"));
             const inDir = cfg.inputFolder || (homeDir + "/inbox");
             const outDir = cfg.outputFolder || (homeDir + "/outbox");
 
@@ -445,6 +458,7 @@ function run(argv) {
     btnBreed.setAction("onBreed:");
 
     // Initial render
+    registerColonyHamsters();
     renderHamsters();
 
     // 1.0s live heartbeat timer

@@ -2,11 +2,15 @@
 
 **A native Mac GUI for AI workers, packed into one shell script.**
 
-No installer. No server. No third-party libraries. Double-click [`hamster.command`](hamster.command) to open the native interface, configure a worker, and start processing files.
+No installer. No server. No third-party libraries. Open `main-colony/` and double-click [`hamster.command`](main-colony/hamster.command) to open the native interface, configure a worker, and start processing files.
 
 Give it an inbox, an outbox, and a prompt. Drop a file into the inbox. Hamster runs your AI CLI and puts the results in the outbox. Connect one worker's outbox to another's inbox to chain tasks.
 
 **Requires macOS and an installed, authenticated Gemini, Claude, or Codex CLI.** Hamster adds no dependencies beyond those tools and what ships with macOS.
+
+| A single worker | A colony in Habitat |
+| --- | --- |
+| ![Hamster's native window with inbox, worker controls, and outbox](docs/images/hamster-worker.png) | ![Habitat managing two workers in main-colony](docs/images/hamster-colony.png) |
 
 ## How a script becomes a GUI
 
@@ -14,7 +18,7 @@ The Bash launcher runs macOS's built-in JavaScript for Automation through `osasc
 
 There is no build step or separate app bundle. The source file is the file you run, so you can inspect the whole application before launching it.
 
-The optional [`habitat.command`](habitat.command) provides a separate native window for managing multiple workers. Each Hamster runs on its own without it.
+The optional [`habitat.command`](main-colony/habitat.command) provides a separate native window for managing the workers in its folder. Each Hamster runs on its own without it.
 
 ---
 
@@ -52,6 +56,22 @@ It provides controls for all your workers in one window:
 - **Per-Hamster Toggles**: Hit **`▶ Start`** or **`⏹ Stop`** on any individual card to control that specific worker.
 - **Open Window On Demand**: Click **`🖥 Window`** on any card to bring up its full configuration screen whenever you want to inspect logs or adjust prompts.
 - **Instant Breeding**: Click **`✨ Breed`** to spawn a new Hamster into your habitat immediately.
+
+## Multiple colonies
+
+Each folder is a colony. Its `habitat.command` lists only the Hamster scripts beside it, and **Start All** and **Stop All** apply only to those workers. The window title shows the colony folder name.
+
+1. Duplicate the entire `main-colony/` folder in Finder.
+2. Rename the copy, for example `research-colony/`.
+3. Open `research-colony/habitat.command` to register its workers and manage that colony.
+
+Copied workers get new IDs and start stopped with default settings and separate working folders. Prompts, custom paths, queued files, and credentials are not copied by this operation. Each worker uses your existing AI CLI authentication.
+
+**Breed** creates a new script in the same colony folder. To move an existing worker or rename a colony, quit its workers first, move or rename the folder, and reopen Habitat. When the old script path no longer exists, workers keep their IDs, settings, and working folders.
+
+Worker state remains under `~/Library/Application Support/Hamsters/<worker-id>/`. Default inboxes and outboxes remain under `~/Hamsters/Hamster_<id>/`. Colonies group scripts; moving a colony does not move those data folders.
+
+For development, run `node tests/colonies.cjs` on macOS to check registration, copying, moving, and colony controls using temporary files and the native automation runtime. Node is only needed for this test script.
 
 ---
 

@@ -2,14 +2,14 @@
 
 **A native Mac GUI for AI workers, packed into one shell script.**
 
-No installer. No server. No third-party libraries. Open `main-colony/` and double-click [`hamster.command`](main-colony/hamster.command) to open the native interface, configure a worker, and start processing files.
+No installer, server or third-party libraries. Open `main-colony/` and double-click [`hamster.command`](main-colony/hamster.command) to open the native interface, configure a worker, and start processing files.
 
 Give it an inbox, an outbox, and a prompt. Drop a file into the inbox. Hamster runs your AI CLI and puts the results in the outbox. Connect one worker's outbox to another's inbox to chain tasks.
 
 **Requires macOS and an installed, authenticated Gemini, Claude, or Codex CLI.** Hamster adds no dependencies beyond those tools and what ships with macOS.
 
-| A single worker | A colony in Habitat |
-| --- | --- |
+| A single worker                                                                                    | A colony in Habitat                                                            |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | ![Hamster's native window with inbox, worker controls, and outbox](docs/images/hamster-worker.png) | ![Habitat managing two workers in main-colony](docs/images/hamster-colony.png) |
 
 ## How a script becomes a GUI

@@ -95,6 +95,65 @@ try {
     }
     console.log('PASS first Colony launch registers workers with matching default folders');
 
+    const creationCode = section(colonySource, '    function createColony()', '    function registerColonyHamsters()');
+    const creationAction = section(colonySource, '"onBreedColony:":', '"onStartAll:":')
+        .replace('$.NSWorkspace.sharedWorkspace.openFile(newScript)', 'openCreatedColony(newScript)');
+    const newScripts = native(`
+        const colonyDir = ${JSON.stringify(original)};
+        const scriptPath = colonyDir + "/colony.command";
+        const baseStorage = ${JSON.stringify(storage)};
+        const fm = $.NSFileManager.defaultManager;
+        ${section(colonySource, '    function makeDir(', '    // App & Window Setup')}
+        ${creationCode}
+        const opened = [];
+        function openCreatedColony(script) { opened.push(script); return true; }
+        const actions = {${creationAction}};
+        actions["onBreedColony:"].implementation(null);
+        actions["onBreedColony:"].implementation(null);
+        JSON.stringify(opened);
+    `);
+    assert.equal(new Set(newScripts).size, 2);
+    const newWorkerIds = new Set(first.map(h => h.id));
+    for (const script of newScripts) {
+        const folder = path.dirname(script);
+        assert.equal(path.dirname(folder), root);
+        assert.match(path.basename(folder), /^colony-[a-f0-9]{8}\.colony$/);
+        const files = fs.readdirSync(folder).sort();
+        assert.equal(files.length, 2);
+        assert.equal(files[0], 'colony.command');
+        assert.match(files[1], /^hamster-[a-f0-9]{8}\.command$/);
+        assert.equal(fs.readFileSync(script, 'utf8'), colonySource);
+        assert(fs.statSync(script).mode & 0o111);
+        assert(fs.statSync(path.join(folder, files[1])).mode & 0o111);
+        const workers = colony(folder, 'register');
+        assert.equal(workers.length, 1);
+        assert.equal(path.basename(workers[0].scriptPath), workers[0].id + '.command');
+        assert(!newWorkerIds.has(workers[0].id));
+        newWorkerIds.add(workers[0].id);
+        assert.equal(workers[0].isWorkerRunning, false);
+        const config = initialize(workers[0]);
+        assert(first.every(h => h.inputFolder !== config.inputFolder && h.outputFolder !== config.outputFolder));
+    }
+    assert.equal(colony(original).length, 2);
+    assert(!fs.readdirSync(root).some(name => name.endsWith('.tmp')));
+    console.log('PASS Breed Colony creates separate sibling colonies with one fresh executable worker each');
+
+    const beforeFailure = fs.readdirSync(root).sort();
+    const creationFailure = native(`
+        const colonyDir = ${JSON.stringify(original)};
+        const scriptPath = colonyDir + "/missing.command";
+        const baseStorage = ${JSON.stringify(storage)};
+        const fm = $.NSFileManager.defaultManager;
+        ${section(colonySource, '    function makeDir(', '    // App & Window Setup')}
+        ${creationCode}
+        let failure = "";
+        try { createColony(); } catch (error) { failure = error.message; }
+        JSON.stringify(failure);
+    `);
+    assert.equal(creationFailure, 'Could not copy colony.command.');
+    assert.deepEqual(fs.readdirSync(root).sort(), beforeFailure);
+    console.log('PASS failed colony creation removes incomplete files');
+
     fs.cpSync(original, copied, { recursive: true });
     const second = colony(copied, 'register');
     assert.equal(second.length, 2);
@@ -135,6 +194,42 @@ try {
         initialize(h);
     }
     console.log('PASS Breed creates an executable worker in its own colony');
+
+    const idNamedColony = path.dirname(newScripts[0]);
+    assert(!fs.existsSync(path.join(idNamedColony, 'hamster.command')));
+    const descendantScript = native(`
+        const colonyDir = ${JSON.stringify(idNamedColony)};
+        const scriptPath = colonyDir + "/colony.command";
+        const baseStorage = ${JSON.stringify(storage)};
+        const fm = $.NSFileManager.defaultManager;
+        ${section(colonySource, '    function makeDir(', '    // App & Window Setup')}
+        ${creationCode}
+        JSON.stringify(createColony());
+    `);
+    const descendantWorkers = colony(path.dirname(descendantScript), 'register');
+    assert.equal(descendantWorkers.length, 1);
+    assert.equal(path.basename(descendantWorkers[0].scriptPath), descendantWorkers[0].id + '.command');
+    assert(!newWorkerIds.has(descendantWorkers[0].id));
+    console.log('PASS colony with an ID-named worker can breed another colony');
+
+    const additionalWorkers = native(`
+        const colonyDir = ${JSON.stringify(idNamedColony)};
+        const scriptPath = colonyDir + "/colony.command";
+        const baseStorage = ${JSON.stringify(storage)};
+        const userHome = ${JSON.stringify(userHome)};
+        const fm = $.NSFileManager.defaultManager;
+        ${section(colonySource, '    function makeDir(', '    // App & Window Setup')}
+        ${section(colonySource, '    function registerColonyHamsters()', '    function ensureHamsterRunning(')}
+        function renderHamsters() {}
+        const actions = {${breedAction}};
+        actions["onBreed:"].implementation(null);
+        JSON.stringify(scanHamsters());
+    `);
+    assert.equal(additionalWorkers.length, 2);
+    assert.equal(new Set(additionalWorkers.map(h => h.id)).size, 2);
+    for (const h of additionalWorkers) assert.equal(path.basename(h.scriptPath), h.id + '.command');
+    assert(!fs.existsSync(path.join(idNamedColony, 'hamster.command')));
+    console.log('PASS colony with ID-named workers can breed another worker');
 
     fleet(copied, 'onStartAll:');
     assert(colony(copied).every(h => h.isWorkerRunning));

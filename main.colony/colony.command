@@ -93,6 +93,12 @@ function run(argv) {
         return ($.kill(parseInt(pid, 10), 0) === 0);
     }
 
+    function workerTemplatePath() {
+        const names = listDir(colonyDir).filter(name => name === "hamster.command" || /^hamster-.+\.command$/.test(name)).sort();
+        if (names.includes("hamster.command")) return colonyDir + "/hamster.command";
+        return names.length > 0 ? colonyDir + "/" + names[0] : null;
+    }
+
     // App & Window Setup
     const app = $.NSApplication.sharedApplication;
     app.setActivationPolicy($.NSApplicationActivationPolicyRegular);
@@ -158,8 +164,10 @@ function run(argv) {
     const btnBreed = createButton("✨ Breed", winWidth - 100, winHeight - 40, 85, 28, contentView);
     btnBreed.setFont($.NSFont.boldSystemFontOfSize(12));
 
+    const btnBreedColony = createButton("✨ Breed Colony", 15, 15, 160, 30, contentView);
+
     // Scrollable Hamster Cards List
-    const scrollList = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(15, 15, winWidth - 30, winHeight - 65));
+    const scrollList = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(15, 60, winWidth - 30, winHeight - 110));
     scrollList.setHasVerticalScroller(true);
     scrollList.setHasHorizontalScroller(false);
     scrollList.setAutohidesScrollers(true);
@@ -174,6 +182,55 @@ function run(argv) {
     // Colony State Engine
     // -------------------------------------------------------------------------
     let cachedHamsters = [];
+
+    function createColony() {
+        const templatePath = workerTemplatePath();
+        if (!templatePath) throw new Error("No Hamster script found in this colony.");
+        const source = $.NSString.stringWithContentsOfFileEncodingError(templatePath, $.NSUTF8StringEncoding, $());
+        if (source.isNil()) throw new Error("Hamster script is unreadable.");
+        const template = ObjC.unwrap(source);
+        if (!/^HAMSTER_ID="[^"]*"/m.test(template)) throw new Error("Hamster script has no worker ID.");
+
+        const parentDir = colonyDir.substring(0, colonyDir.lastIndexOf("/"));
+        let newColonyDir;
+        do {
+            const id = $.NSUUID.UUID.UUIDString.js.toLowerCase().substring(0, 8);
+            newColonyDir = parentDir + "/colony-" + id + ".colony";
+        } while (fm.fileExistsAtPath(newColonyDir) || fm.fileExistsAtPath(newColonyDir + ".tmp"));
+
+        let workerId;
+        do {
+            workerId = "hamster-" + $.NSUUID.UUID.UUIDString.js.toLowerCase().substring(0, 8);
+        } while (fm.fileExistsAtPath(baseStorage + "/" + workerId));
+
+        const stagingDir = newColonyDir + ".tmp";
+        const workerPath = stagingDir + "/" + workerId + ".command";
+        if (!fm.createDirectoryAtPathWithIntermediateDirectoriesAttributesError(stagingDir, false, $(), $())) {
+            throw new Error("Could not create a colony beside this folder.");
+        }
+        try {
+            if (!fm.copyItemAtPathToPathError(scriptPath, stagingDir + "/colony.command", $())) {
+                throw new Error("Could not copy colony.command.");
+            }
+            const code = template.replace(/^HAMSTER_ID="[^"]*"/m, 'HAMSTER_ID="' + workerId + '"');
+            if (!$.NSString.stringWithString(code).writeToFileAtomicallyEncodingError(workerPath, true, $.NSUTF8StringEncoding, $())) {
+                throw new Error("Could not create the colony's Hamster script.");
+            }
+            const chmod = $.NSTask.alloc.init;
+            chmod.setLaunchPath("/bin/chmod");
+            chmod.setArguments($(["+x", stagingDir + "/colony.command", workerPath]));
+            chmod.launch;
+            chmod.waitUntilExit;
+            if (chmod.terminationStatus !== 0) throw new Error("Could not make the colony scripts executable.");
+            if (!fm.moveItemAtPathToPathError(stagingDir, newColonyDir, $())) {
+                throw new Error("Could not finish creating the colony.");
+            }
+        } catch (error) {
+            fm.removeItemAtPathError(stagingDir, $());
+            throw error;
+        }
+        return newColonyDir + "/colony.command";
+    }
 
     function registerColonyHamsters() {
         for (let name of listDir(colonyDir)) {
@@ -345,6 +402,22 @@ function run(argv) {
     ObjC.registerSubclass({
         name: "ColonyCoordinatorV3",
         methods: {
+            "onBreedColony:": {
+                types: ["void", ["id"]],
+                implementation: function(sender) {
+                    try {
+                        const newScript = createColony();
+                        if (!$.NSWorkspace.sharedWorkspace.openFile(newScript)) {
+                            throw new Error("Colony created. Open it at " + newScript);
+                        }
+                    } catch (error) {
+                        const alert = $.NSAlert.alloc.init;
+                        alert.setMessageText("Could not open the new colony");
+                        alert.setInformativeText(String(error.message || error));
+                        alert.runModal;
+                    }
+                }
+            },
             "onStartAll:": {
                 types: ["void", ["id"]],
                 implementation: function(sender) {
@@ -368,11 +441,11 @@ function run(argv) {
                 types: ["void", ["id"]],
                 implementation: function(sender) {
                     const currentDir = scriptPath.substring(0, scriptPath.lastIndexOf("/"));
-                    const canonicalHamster = currentDir + "/hamster.command";
-                    if (fm.fileExistsAtPath(canonicalHamster)) {
+                    const templatePath = workerTemplatePath();
+                    if (templatePath) {
                         const newId = "hamster-" + Math.random().toString(36).substring(2, 10);
                         const destPath = currentDir + "/" + newId + ".command";
-                        const source = $.NSString.stringWithContentsOfFileEncodingError(canonicalHamster, $.NSUTF8StringEncoding, $());
+                        const source = $.NSString.stringWithContentsOfFileEncodingError(templatePath, $.NSUTF8StringEncoding, $());
                         const code = ObjC.unwrap(source).replace(/HAMSTER_ID="[^"]*"/, 'HAMSTER_ID="' + newId + '"');
                         $.NSString.stringWithString(code).writeToFileAtomicallyEncodingError(destPath, true, $.NSUTF8StringEncoding, $());
                         const chmod = $.NSTask.alloc.init;
@@ -383,7 +456,7 @@ function run(argv) {
                         $.NSWorkspace.sharedWorkspace.openFile(destPath);
                         renderHamsters();
                     } else {
-                        summaryLabel.setStringValue("⚠️ hamster.command not found in current folder.");
+                        summaryLabel.setStringValue("⚠️ No Hamster script found in this colony.");
                     }
                 }
             },
@@ -456,6 +529,9 @@ function run(argv) {
 
     btnBreed.setTarget(coordinator);
     btnBreed.setAction("onBreed:");
+
+    btnBreedColony.setTarget(coordinator);
+    btnBreedColony.setAction("onBreedColony:");
 
     // Initial render
     registerColonyHamsters();

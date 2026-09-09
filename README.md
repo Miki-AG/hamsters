@@ -65,6 +65,10 @@ It provides controls for all your workers in one window:
 
 Each folder is a colony. Its `colony.command` lists only the Hamster scripts beside it, and **Start All** and **Stop All** apply only to those workers. The window title shows the colony folder name.
 
+Click **✨ Breed Colony** to create and open a new colony beside the current folder. The new `colony-<id>.colony/` folder contains `colony.command` and a single `hamster-<id>.command`, whose filename matches its fresh worker ID. That worker starts stopped with default settings and separate working folders. Use **✨ Breed** inside the new colony to add more workers. Both breeding actions can use an existing Hamster script as their template; a file named `hamster.command` is not required.
+
+To create a fresh colony with the same number of scripts as an existing one:
+
 1. Duplicate the entire `main.colony/` folder in Finder.
 2. Rename the copy, for example `research.colony/`.
 3. Open `research.colony/colony.command` to register its workers and manage that colony.

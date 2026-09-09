@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# 🐹 HAMSTER HABITAT - Minimalist Master Fleet Dashboard
+# 🐹 HAMSTER COLONY - Minimalist Master Fleet Dashboard
 # ==============================================================================
 # - Auto-discovers all local Hamsters.
 # - Decoupled state: starts/stops workers headlessly without opening windows.
@@ -26,7 +26,7 @@ if [ "$1" != "--gui-worker" ]; then
 fi
 
 # ------------------------------------------------------------------------------
-# Launch Habitat GUI
+# Launch Colony GUI
 # ------------------------------------------------------------------------------
 exec /usr/bin/osascript -l JavaScript - "$SCRIPT_PATH" << 'EOF'
 function run(argv) {
@@ -103,7 +103,7 @@ function run(argv) {
     const appMenuItem = $.NSMenuItem.alloc.init;
     menubar.addItem(appMenuItem);
     const appMenu = $.NSMenu.alloc.init;
-    appMenu.addItem($.NSMenuItem.alloc.initWithTitleActionKeyEquivalent("Quit Habitat", "terminate:", "q"));
+    appMenu.addItem($.NSMenuItem.alloc.initWithTitleActionKeyEquivalent("Quit Colony", "terminate:", "q"));
     appMenuItem.setSubmenu(appMenu);
     app.setMainMenu(menubar);
 
@@ -116,7 +116,7 @@ function run(argv) {
         false
     );
 
-    win.setTitle("🐹 Hamster Habitat: " + colonyName);
+    win.setTitle("🐹 Hamster Colony: " + colonyName);
     win.setReleasedWhenClosed(false);
     win.center;
 
@@ -148,7 +148,7 @@ function run(argv) {
     }
 
     // Top Header
-    createLabel("🐹 Hamster Habitat", 20, winHeight - 38, 200, 26, true, 17, contentView);
+    createLabel("🐹 Hamster Colony", 20, winHeight - 38, 200, 26, true, 17, contentView);
     const summaryLabel = createLabel("Loading workers…", 195, winHeight - 35, 150, 20, false, 11, contentView);
     summaryLabel.setTextColor($.NSColor.secondaryLabelColor);
 
@@ -171,7 +171,7 @@ function run(argv) {
     scrollList.setDocumentView(listContainer);
 
     // -------------------------------------------------------------------------
-    // Habitat State Engine
+    // Colony State Engine
     // -------------------------------------------------------------------------
     let cachedHamsters = [];
 
@@ -340,10 +340,10 @@ function run(argv) {
     }
 
     // -------------------------------------------------------------------------
-    // Habitat Coordinator
+    // Colony Coordinator
     // -------------------------------------------------------------------------
     ObjC.registerSubclass({
-        name: "HabitatCoordinatorV3",
+        name: "ColonyCoordinatorV3",
         methods: {
             "onStartAll:": {
                 types: ["void", ["id"]],
@@ -444,7 +444,7 @@ function run(argv) {
         }
     });
 
-    const coordinator = $.HabitatCoordinatorV3.alloc.init;
+    const coordinator = $.ColonyCoordinatorV3.alloc.init;
     app.setDelegate(coordinator);
     win.setDelegate(coordinator);
 

@@ -10,9 +10,9 @@ Hamsters are composable. Connect one worker's outbox to another's inbox to chain
 
 Requires an installed, authenticated Gemini, Claude, or Codex CLI. Hamster adds no extra dependencies.
 
-| A single worker                                                                                    | A colony in Habitat                                                            |
+| A single worker                                                                                    | A colony                                                            |
 | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| ![Hamster's native window with inbox, worker controls, and outbox](docs/images/hamster-worker.png) | ![Habitat managing two workers in a colony](docs/images/hamster-colony.png) |
+| ![Hamster's native window with inbox, worker controls, and outbox](docs/images/hamster-worker.png) | ![Colony managing two workers in a colony](docs/images/hamster-colony.png) |
 
 ## How a script becomes a GUI
 
@@ -22,7 +22,7 @@ There is no build step or separate app bundle. The source file is the file you r
 
 No rebuild or installer needed, just relaunch the script.
 
-The optional [`habitat.command`](main.colony/habitat.command) provides a separate native window for managing the workers in its folder. Each Hamster runs on its own without it.
+The optional [`colony.command`](main.colony/colony.command) provides a separate native window for managing the workers in its folder. Each Hamster runs on its own without it.
 
 ---
 
@@ -49,9 +49,9 @@ If a tool works when you type its command in your terminal, it works instantly i
 
 ---
 
-## 🧭 Managing Your Colony: `habitat.command`
+## 🧭 Managing Your Colony: `colony.command`
 
-When you have multiple Hamsters running and don't want floating windows cluttering your screen, double-click **`habitat.command`**.
+When you have multiple Hamsters running and don't want floating windows cluttering your screen, double-click **`colony.command`**.
 
 It provides controls for all your workers in one window:
 
@@ -59,19 +59,19 @@ It provides controls for all your workers in one window:
 - **Fleet Controls**: Click **`▶ Start All`** or **`⏹ Stop All`** to pause or resume processing across all workers in one click.
 - **Per-Hamster Toggles**: Hit **`▶ Start`** or **`⏹ Stop`** on any individual card to control that specific worker.
 - **Open Window On Demand**: Click **`🖥 Window`** on any card to bring up its full configuration screen whenever you want to inspect logs or adjust prompts.
-- **Instant Breeding**: Click **`✨ Breed`** to spawn a new Hamster into your habitat immediately.
+- **Instant Breeding**: Click **`✨ Breed`** to spawn a new Hamster into your colony immediately.
 
 ## Multiple colonies
 
-Each folder is a colony. Its `habitat.command` lists only the Hamster scripts beside it, and **Start All** and **Stop All** apply only to those workers. The window title shows the colony folder name.
+Each folder is a colony. Its `colony.command` lists only the Hamster scripts beside it, and **Start All** and **Stop All** apply only to those workers. The window title shows the colony folder name.
 
 1. Duplicate the entire `main.colony/` folder in Finder.
 2. Rename the copy, for example `research.colony/`.
-3. Open `research.colony/habitat.command` to register its workers and manage that colony.
+3. Open `research.colony/colony.command` to register its workers and manage that colony.
 
 Copied workers get new IDs and start stopped with default settings and separate working folders. Prompts, custom paths, queued files, and credentials are not copied by this operation. Each worker uses your existing AI CLI authentication.
 
-**Breed** creates a new script in the same colony folder. To move an existing worker or rename a colony, quit its workers first, move or rename the folder, and reopen Habitat. When the old script path no longer exists, workers keep their IDs, settings, and working folders.
+**Breed** creates a new script in the same colony folder. To move an existing worker or rename a colony, quit its workers first, move or rename the folder, and reopen Colony. When the old script path no longer exists, workers keep their IDs, settings, and working folders.
 
 Worker state remains under `~/Library/Application Support/Hamsters/<worker-id>/`. Default inboxes and outboxes remain under `~/Hamsters/Hamster_<id>/`. Colonies group scripts; moving a colony does not move those data folders.
 
@@ -147,7 +147,7 @@ Each workflow has a dedicated inbox per stage. Workers sharing an inbox compete 
 
 ## ✨ Breeding: Instant Duplication
 
-Need another worker for a different job? Click **`✨ Breed Hamster`** on the wheel or in the Habitat.
+Need another worker for a different job? Click **`✨ Breed Hamster`** on the wheel or in the Colony.
 
 A new `hamster-<id>.command` is generated in the same directory and launches with its own home, inbox, outbox, and settings.
 

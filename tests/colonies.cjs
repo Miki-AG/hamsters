@@ -6,7 +6,7 @@ const { spawnSync } = require('node:child_process');
 
 const project = path.resolve(__dirname, '..');
 const workerSource = fs.readFileSync(path.join(project, 'main.colony/hamster.command'), 'utf8');
-const habitatSource = fs.readFileSync(path.join(project, 'main.colony/habitat.command'), 'utf8');
+const colonySource = fs.readFileSync(path.join(project, 'main.colony/colony.command'), 'utf8');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hamster-colonies-'));
 const storage = path.join(root, 'state');
 const userHome = path.join(root, 'user');
@@ -31,14 +31,14 @@ function native(code) {
     return JSON.parse(result.stdout);
 }
 
-function habitat(folder, action = 'scan') {
+function colony(folder, action = 'scan') {
     return native(`
         const colonyDir = ${JSON.stringify(folder)};
         const baseStorage = ${JSON.stringify(storage)};
         const userHome = ${JSON.stringify(userHome)};
         const fm = $.NSFileManager.defaultManager;
-        ${section(habitatSource, '    function makeDir(', '    // App & Window Setup')}
-        ${section(habitatSource, '    function registerColonyHamsters()', '    function ensureHamsterRunning(')}
+        ${section(colonySource, '    function makeDir(', '    // App & Window Setup')}
+        ${section(colonySource, '    function registerColonyHamsters()', '    function ensureHamsterRunning(')}
         ${action === 'register' ? 'registerColonyHamsters();' : ''}
         JSON.stringify(scanHamsters());
     `);
@@ -55,16 +55,16 @@ function initialize(worker) {
 }
 
 function fleet(folder, method) {
-    const start = habitatSource.indexOf('"' + method + '":');
-    const end = habitatSource.indexOf('\n            },', start);
-    const action = habitatSource.slice(start, end + '\n            },'.length);
+    const start = colonySource.indexOf('"' + method + '":');
+    const end = colonySource.indexOf('\n            },', start);
+    const action = colonySource.slice(start, end + '\n            },'.length);
     return native(`
         const colonyDir = ${JSON.stringify(folder)};
         const baseStorage = ${JSON.stringify(storage)};
         const userHome = ${JSON.stringify(userHome)};
         const fm = $.NSFileManager.defaultManager;
-        ${section(habitatSource, '    function makeDir(', '    // App & Window Setup')}
-        ${section(habitatSource, '    function registerColonyHamsters()', '    function ensureHamsterRunning(')}
+        ${section(colonySource, '    function makeDir(', '    // App & Window Setup')}
+        ${section(colonySource, '    function registerColonyHamsters()', '    function ensureHamsterRunning(')}
         const cachedHamsters = scanHamsters();
         function ensureHamsterRunning() {}
         function renderHamsters() {}
@@ -83,9 +83,9 @@ try {
     fs.writeFileSync(path.join(original, 'hamster.command'), testSource, { mode: 0o755 });
     fs.writeFileSync(path.join(original, 'hamster-second.command'),
         testSource.replace(/^HAMSTER_ID=.*$/m, 'HAMSTER_ID="hamster-test-second"'), { mode: 0o755 });
-    fs.copyFileSync(path.join(project, 'main.colony/habitat.command'), path.join(original, 'habitat.command'));
+    fs.copyFileSync(path.join(project, 'main.colony/colony.command'), path.join(original, 'colony.command'));
 
-    const first = habitat(original, 'register');
+    const first = colony(original, 'register');
     assert.equal(first.length, 2);
     assert.equal(new Set(first.map(h => h.id)).size, 2);
     for (const h of first) {
@@ -93,10 +93,10 @@ try {
         assert.equal(config.inputFolder, h.inputFolder);
         assert.equal(config.outputFolder, h.outputFolder);
     }
-    console.log('PASS first Habitat launch registers workers with matching default folders');
+    console.log('PASS first Colony launch registers workers with matching default folders');
 
     fs.cpSync(original, copied, { recursive: true });
-    const second = habitat(copied, 'register');
+    const second = colony(copied, 'register');
     assert.equal(second.length, 2);
     assert(second.every(h => !first.some(old => old.id === h.id)));
     assert(second.every(h => !h.isWorkerRunning));
@@ -104,32 +104,32 @@ try {
         const config = initialize(h);
         assert(first.every(old => old.inputFolder !== config.inputFolder && old.outputFolder !== config.outputFolder));
     }
-    assert.deepEqual(habitat(original).map(h => h.id), first.map(h => h.id));
+    assert.deepEqual(colony(original).map(h => h.id), first.map(h => h.id));
     console.log('PASS copied colony has new IDs, separate queues, and no original workers');
 
-    assert.deepEqual(habitat(copied, 'register').map(h => h.id), second.map(h => h.id));
+    assert.deepEqual(colony(copied, 'register').map(h => h.id), second.map(h => h.id));
     console.log('PASS reopening a colony preserves its registered IDs');
 
-    const breedStart = habitatSource.indexOf('"onBreed:":');
-    const breedEnd = habitatSource.indexOf('"onCardToggleWorker:":', breedStart);
+    const breedStart = colonySource.indexOf('"onBreed:":');
+    const breedEnd = colonySource.indexOf('"onCardToggleWorker:":', breedStart);
     // Exercise file creation and chmod, replacing only the GUI launch with registration.
-    const breedAction = habitatSource.slice(breedStart, breedEnd)
+    const breedAction = colonySource.slice(breedStart, breedEnd)
         .replace('$.NSWorkspace.sharedWorkspace.openFile(destPath);', 'registerColonyHamsters();');
     const bred = native(`
         const colonyDir = ${JSON.stringify(copied)};
-        const scriptPath = colonyDir + "/habitat.command";
+        const scriptPath = colonyDir + "/colony.command";
         const baseStorage = ${JSON.stringify(storage)};
         const userHome = ${JSON.stringify(userHome)};
         const fm = $.NSFileManager.defaultManager;
-        ${section(habitatSource, '    function makeDir(', '    // App & Window Setup')}
-        ${section(habitatSource, '    function registerColonyHamsters()', '    function ensureHamsterRunning(')}
+        ${section(colonySource, '    function makeDir(', '    // App & Window Setup')}
+        ${section(colonySource, '    function registerColonyHamsters()', '    function ensureHamsterRunning(')}
         function renderHamsters() {}
         const actions = {${breedAction}};
         actions["onBreed:"].implementation(null);
         JSON.stringify(scanHamsters());
     `);
     assert.equal(bred.length, 3);
-    assert.equal(habitat(original).length, 2);
+    assert.equal(colony(original).length, 2);
     for (const h of bred) {
         assert(fs.statSync(h.scriptPath).mode & 0o111);
         initialize(h);
@@ -137,28 +137,28 @@ try {
     console.log('PASS Breed creates an executable worker in its own colony');
 
     fleet(copied, 'onStartAll:');
-    assert(habitat(copied).every(h => h.isWorkerRunning));
-    assert(habitat(original).every(h => !h.isWorkerRunning));
+    assert(colony(copied).every(h => h.isWorkerRunning));
+    assert(colony(original).every(h => !h.isWorkerRunning));
     fleet(original, 'onStopAll:');
-    assert(habitat(copied).every(h => h.isWorkerRunning));
+    assert(colony(copied).every(h => h.isWorkerRunning));
     fleet(copied, 'onStopAll:');
-    assert(habitat(copied).every(h => !h.isWorkerRunning));
+    assert(colony(copied).every(h => !h.isWorkerRunning));
     console.log('PASS fleet state controls affect only their colony');
 
     const moved = path.join(root, 'renamed colony');
     fs.renameSync(copied, moved);
-    const afterMove = habitat(moved, 'register');
+    const afterMove = colony(moved, 'register');
     assert.deepEqual(afterMove.map(h => h.id), bred.map(h => h.id));
     assert.deepEqual(afterMove.map(h => h.inputFolder), bred.map(h => h.inputFolder));
-    assert.equal(habitat(copied).length, 0);
+    assert.equal(colony(copied).length, 0);
     console.log('PASS moving a colony preserves IDs and configured working folders');
 
     const moving = afterMove[0];
     const target = path.join(original, 'hamster-moved.command');
     fs.renameSync(moving.scriptPath, target);
-    const imported = habitat(original, 'register');
+    const imported = colony(original, 'register');
     assert(imported.some(h => h.id === moving.id && h.scriptPath === target));
-    assert.equal(habitat(moved).length, 2);
+    assert.equal(colony(moved).length, 2);
     console.log('PASS moving one worker changes colony membership without cloning it');
 
     const unopened = path.join(root, 'unopened');
@@ -167,8 +167,8 @@ try {
     fs.writeFileSync(path.join(unopened, 'hamster.command'),
         testSource.replace(/^HAMSTER_ID=.*$/m, 'HAMSTER_ID="HAMSTER_ID_PLACEHOLDER"'), { mode: 0o755 });
     fs.cpSync(unopened, unopenedCopy, { recursive: true });
-    const unopenedWorkers = habitat(unopened, 'register');
-    const unopenedCopyWorkers = habitat(unopenedCopy, 'register');
+    const unopenedWorkers = colony(unopened, 'register');
+    const unopenedCopyWorkers = colony(unopenedCopy, 'register');
     assert.equal(unopenedWorkers.length, 1);
     assert.equal(unopenedCopyWorkers.length, 1);
     assert.notEqual(unopenedWorkers[0].id, unopenedCopyWorkers[0].id);

@@ -89,14 +89,16 @@ flowchart LR
 ```
 
 ### 2. The Specialist Crew
-Send different files to dedicated Hamsters with tailored skills and prompts.
+Give each specialist its own inbox and prompt. Put code, images, and receipts into the appropriate folders yourself, or use a separate routing step. Hamster does not automatically route files by type.
 
 ```mermaid
 flowchart TD
-    Inflow["📥 Raw Files"] --> H1["🐹 Code Refactorer"]
-    Inflow --> H2["🐹 Image Captioner"]
-    Inflow --> H3["🐹 Receipt Parser"]
+    Code["📥 Code inbox"] --> H1["🐹 Code Refactorer"]
+    Images["📥 Images inbox"] --> H2["🐹 Image Captioner"]
+    Receipts["📥 Receipts inbox"] --> H3["🐹 Receipt Parser"]
 ```
+
+Workers sharing an inbox compete for files: the first worker to claim a file processes it. Sharing an inbox does not send each file to every worker or select a specialist for it.
 
 ### 3. The Editorial Board
 Several researcher Hamsters dump findings into the inbox of an Editor Hamster, who combines everything into a single briefing.

@@ -16,7 +16,7 @@ Requires macOS and an installed, authenticated Gemini, Claude, or Codex CLI.\*\*
 
 The Bash launcher runs macOS's built-in JavaScript for Automation through `osascript`. That JavaScript calls Cocoa to create native windows and controls. The interface, settings, folder monitoring, and worker logic all live in the same `.command` file.
 
-There is no build step or separate app bundle. The source file is the file you run, so you can inspect it and ask your coding agent to customize it. For example: "Add support for multiple outboxes so I can route different kinds of results to different folders." Once the change is verified, relaunch the script to use it. No rebuild or installer needed.
+There is no build step or separate app bundle. The source file is the file you run. It is easy to inspect and modify. Changes like for example, adding support for multiple outboxes are trivial. No rebuild or installer needed, just relaunch the script.
 
 The optional [`habitat.command`](main-colony/habitat.command) provides a separate native window for managing the workers in its folder. Each Hamster runs on its own without it.
 

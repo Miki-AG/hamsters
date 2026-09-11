@@ -14,16 +14,10 @@ Requires macOS 12+ and an installed, authenticated Gemini (`agy` or `gemini`), C
 | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | ![Hamster's native window with inbox, worker controls, and outbox](docs/images/hamster-worker.png) | ![Colony managing two workers in a colony](docs/images/hamster-colony.png) |
 
-## How a script becomes a GUI
-
-The Bash launcher uses macOS's built-in JavaScript for Automation and Cocoa to create the interface. The GUI and worker logic live in the same `.command` file.
-
-The source file is the file you run. Inspect it yourself or ask your coding agent to adapt it, then relaunch. There is no build step or separate app bundle.
-
 ## Get started
 
 1. Double-click [`main.colony/hamster-founder/hamster.command`](main.colony/hamster-founder/hamster.command).
-2. In **Settings**, choose your AI backend. Add `.md` prompt files to `instructions/`, `.md` skill files to `skills/`, and executable `.sh` tool files to `tools/`.
+2. In **Settings**, choose your AI backend. Add `.md` prompt files to `instructions/`, `.md` skill files to `skills/`, and executable `.sh` tool files to `tools/`. Hamster loads the prompts and makes the skills and tools available to the agent.
 3. Click **Start Hamster** and drop files into `input/`.
 4. Collect the results from `output/`.
 
@@ -61,6 +55,12 @@ Hamster combines non-hidden files in the selected instructions folder in filenam
 Add scripts to `tools/` and skill guides to `skills/`, or select other folders in Settings.
 
 Git ignores local instructions, tools, skills, queue contents, and runtime data. It also ignores additional workers in `main.colony/` and sibling `*.colony/` folders. Already tracked files remain tracked.
+
+## How a script becomes a GUI
+
+The Bash launcher uses macOS's built-in JavaScript for Automation and Cocoa to create the interface. The GUI and worker logic live in the same `.command` file.
+
+The source file is the file you run. Inspect it yourself or ask your coding agent to adapt it, then relaunch. There is no build step or separate app bundle.
 
 ## Workflows built from folders
 

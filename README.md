@@ -31,7 +31,7 @@ Hamster processes one file at a time and removes successfully processed inputs. 
 
 Failed runs produce files with a timestamped `.error` suffix. Workers ignore these files, so errors do not pass down a chain.
 
-Put the task and output rules in `instructions/`. Put reusable procedures or domain guidance in `skills/`. Put executable scripts and other command-line helpers in `tools/`. The AI agent receives the instruction files and can use the configured skills and tools while it processes each input.
+Create plain-text or Markdown files with the task steps and output rules in `instructions/`. Create plain-text or Markdown files with reusable procedures and domain guidance in `skills/`. Add executable shell scripts or other command-line helpers in `tools/`. The AI agent reads the instruction files and can use the configured skills and tools while it processes each input.
 
 ## Colonies and breeding
 

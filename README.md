@@ -23,15 +23,13 @@ The source file is the file you run. Inspect it yourself or ask your coding agen
 ## Get started
 
 1. Double-click [`main.colony/hamster-founder/hamster.command`](main.colony/hamster-founder/hamster.command).
-2. In **Settings**, choose your AI backend.
+2. In **Settings**, choose your AI backend. Add `.md` prompt files to `instructions/`, `.md` skill files to `skills/`, and executable `.sh` tool files to `tools/`.
 3. Click **Start Hamster** and drop files into `input/`.
 4. Collect the results from `output/`.
 
 Hamster processes one file at a time and removes successfully processed inputs. Keep a copy of any originals you need. You can change both folder paths in Settings.
 
 Failed runs produce files with a timestamped `.error` suffix. Workers ignore these files, so errors do not pass down a chain.
-
-Add `.md` prompt files to `instructions/`, `.md` skill files to `skills/`, and executable `.sh` tool files to `tools/`. Hamster loads the prompts and makes the skills and tools available to the agent.
 
 ## Colonies and breeding
 

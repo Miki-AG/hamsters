@@ -142,4 +142,4 @@ flowchart LR
 
 Run `node tests/colonies.cjs` on macOS to verify registration, breeding, and colony controls. Node is needed only for the tests.
 
-Read the [Hamsters blog entry](https://miguelarmengol.com/blog/applied-ai-engineering-notes/hamsters/) for the project notes.
+Read my [Hamsters blog entry](https://miguelarmengol.com/blog/applied-ai-engineering-notes/hamsters/) for more project notes.

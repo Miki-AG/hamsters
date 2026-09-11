@@ -36,6 +36,8 @@ Only an instruction file and an input file are required for a first run. Skills 
 
 Drop any other customer and package brief into its `input/` folder; the hamster writes the finished email to `output/` automatically.
 
+After a successful run, Hamster keeps the input as `<filename>.processed`. Processed files do not appear in queue counters.
+
 Hamster processes one file at a time. Keep a copy of any originals you need. You can change both folder paths in Settings.
 
 Failed runs produce files with a timestamped `.error` suffix. Workers ignore these files, so errors do not pass down a chain.

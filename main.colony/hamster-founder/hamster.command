@@ -208,6 +208,11 @@ function run(argv) {
         return fm.moveItemAtPathToPathError(src, dest, $());
     }
 
+    function movePathWithoutReplacing(src, dest) {
+        if (fm.fileExistsAtPath(dest)) return false;
+        return fm.moveItemAtPathToPathError(src, dest, $());
+    }
+
     function restoreClaim(claimPath, originalPath) {
         if (!fm.fileExistsAtPath(originalPath)) {
             return movePath(claimPath, originalPath);
@@ -256,6 +261,24 @@ function run(argv) {
 
     function isErrorFile(filename) {
         return String(filename).toLowerCase().endsWith(".error");
+    }
+
+    function isProcessedFile(filename) {
+        return String(filename).toLowerCase().endsWith(".processed");
+    }
+
+    function processedInputPath(originalPath) {
+        let candidate = originalPath + ".processed";
+        let suffix = 2;
+        while (fm.fileExistsAtPath(candidate)) {
+            candidate = originalPath + "-" + suffix + ".processed";
+            suffix++;
+        }
+        return candidate;
+    }
+
+    function markInputProcessed(claimPath, originalPath) {
+        return movePathWithoutReplacing(claimPath, processedInputPath(originalPath));
     }
 
     function errorOutputPath(outDir, filename) {
@@ -747,8 +770,8 @@ function run(argv) {
         const currentInDir = fromDisplayPath(ObjC.unwrap(inputField.stringValue), homeDir);
         const currentOutDir = fromDisplayPath(ObjC.unwrap(outputField.stringValue), homeDir);
 
-        const inItems = listDir(currentInDir).filter(n => !n.startsWith(".") && !n.endsWith(".hamster_claim") && !n.endsWith(".tmp") && !isErrorFile(n));
-        const outItems = listDir(currentOutDir).filter(n => !n.startsWith("."));
+        const inItems = listDir(currentInDir).filter(n => !n.startsWith(".") && !n.endsWith(".hamster_claim") && !n.endsWith(".tmp") && !isErrorFile(n) && !isProcessedFile(n));
+        const outItems = listDir(currentOutDir).filter(n => !n.startsWith(".") && !isProcessedFile(n));
         const completedItems = outItems.filter(n => !isErrorFile(n));
         const errorItems = outItems.filter(n => isErrorFile(n));
 
@@ -792,9 +815,13 @@ function run(argv) {
                 if (deliverySucceeded && listDir(stagingDir).length === 0) {
                     if (fm.fileExistsAtPath(claimPath)) {
                         if (hadError) restoreClaim(claimPath, origPath);
-                        else removePath(claimPath);
+                        else if (!markInputProcessed(claimPath, origPath)) deliverySucceeded = false;
                     }
-                    setCenterText(statusLabel, hadError ? "Error output: " + filename : "Done: " + filename, hadError ? $.NSColor.systemRedColor : $.NSColor.systemGreenColor);
+                    if (deliverySucceeded) {
+                        setCenterText(statusLabel, hadError ? "Error output: " + filename : "Done: " + filename, hadError ? $.NSColor.systemRedColor : $.NSColor.systemGreenColor);
+                    } else {
+                        setCenterText(statusLabel, "Error marking processed: " + filename, $.NSColor.systemRedColor);
+                    }
                 } else {
                     setCenterText(statusLabel, "Error delivering: " + filename, $.NSColor.systemRedColor);
                 }
@@ -846,7 +873,7 @@ function run(argv) {
         let selectedItem = null;
 
         for (let name of items) {
-            if (name.startsWith(".") || name.endsWith(".hamster_claim") || name.endsWith(".tmp") || isErrorFile(name)) {
+            if (name.startsWith(".") || name.endsWith(".hamster_claim") || name.endsWith(".tmp") || isErrorFile(name) || isProcessedFile(name)) {
                 continue;
             }
             const fullPath = inDir + "/" + name;

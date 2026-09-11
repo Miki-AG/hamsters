@@ -64,6 +64,10 @@ function run(argv) {
         return String(filename).toLowerCase().endsWith(".error");
     }
 
+    function isProcessedFile(filename) {
+        return String(filename).toLowerCase().endsWith(".processed");
+    }
+
     function readJSON(file) {
         if (!fm.fileExistsAtPath(file)) return null;
         try {
@@ -324,8 +328,8 @@ function run(argv) {
             const inDir = resolvePath(cfg.inputFolder || "./input", homeDir);
             const outDir = resolvePath(cfg.outputFolder || "./output", homeDir);
 
-            const inCount = listDir(inDir).filter(n => !n.startsWith(".") && !n.endsWith(".hamster_claim") && !n.endsWith(".tmp") && !isErrorFile(n)).length;
-            const outItems = listDir(outDir).filter(n => !n.startsWith("."));
+            const inCount = listDir(inDir).filter(n => !n.startsWith(".") && !n.endsWith(".hamster_claim") && !n.endsWith(".tmp") && !isErrorFile(n) && !isProcessedFile(n)).length;
+            const outItems = listDir(outDir).filter(n => !n.startsWith(".") && !isProcessedFile(n));
             const outCount = outItems.filter(n => !isErrorFile(n)).length;
             const errorCount = outItems.filter(n => isErrorFile(n)).length;
 

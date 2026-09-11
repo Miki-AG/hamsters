@@ -27,9 +27,9 @@ git clone https://github.com/Miki-AG/hamsters.git
 cd hamsters
 ```
 
-The repo comes with a working travel-agent example (`main.colony/hamster-founder`). Its `instructions/prompt.md` defines the job, `skills/` contains procedures for destination research, activity matching, and email composition, and `tools/render/` contains the template renderer. It also includes a sample input file.
+The repo comes with a working travel-agent example (`main.colony/hamster-founder`). Its `instructions/prompt.md` defines the job, `skills/` contains procedures for destination research, activity matching, and email composition, and `tools/render/` contains the template renderer. It also includes a [sample input file](main.colony/hamster-founder/input/sample-travel-package.md).
 
-Only an instruction file and an input file are required for a first run. Skills and tools are optional extensions for reusable procedures and command-line helpers.
+For your own workflows, prompts and input files can be enough. Skills and tools are optional; the included travel example uses both.
 
 1. Double-click [`main.colony/hamster-founder/hamster.command`](main.colony/hamster-founder/hamster.command) to open the hamster UI.
 2. Select an installed AI backend in **Settings**. The founder defaults to Gemini.
@@ -74,7 +74,7 @@ Hamster combines non-hidden files in the selected instructions folder in filenam
 
 Add scripts to `tools/` and skill guides to `skills/`, or select other folders in Settings.
 
-Git ignores generated queue contents, output files, runtime data, and additional workers in `main.colony/` or sibling `*.colony/` folders. The founder's `instructions/`, `skills/`, `tools/`, and `input/` files are tracked as the working example.
+The founder's instructions, skills, tools, and input files are versioned as the working example. Generated output, runtime state, additional workers, and sibling colonies are ignored.
 
 ## How a script becomes a GUI
 

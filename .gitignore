@@ -25,6 +25,14 @@ Hamster-*.command
 !main.colony/hamster-founder/output/
 !main.colony/hamster-founder/output/.gitkeep
 
+# Founder-local skills and tools (contributors add their own privately)
+main.colony/hamster-founder/skills/**
+!main.colony/hamster-founder/skills/
+!main.colony/hamster-founder/skills/.gitkeep
+main.colony/hamster-founder/tools/**
+!main.colony/hamster-founder/tools/
+!main.colony/hamster-founder/tools/.gitkeep
+
 # Local colonies (keep the canonical colony)
 /*.colony/
 !/main.colony/

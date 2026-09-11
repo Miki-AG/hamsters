@@ -23,7 +23,7 @@ The source file is the file you run. Inspect it yourself or ask your coding agen
 ## Get started
 
 1. Double-click [`main.colony/hamster-founder/hamster.command`](main.colony/hamster-founder/hamster.command).
-2. In **Settings**, choose your AI backend, write instructions, and save.
+2. In **Settings**, choose your AI backend and instructions folder.
 3. Click **Start Hamster** and drop files into `input/`.
 4. Collect the results from `output/`.
 
@@ -56,7 +56,7 @@ hamster-founder/          # Bred workers use hamster-<id>/
     .hamster/            # Runtime settings and logs
 ```
 
-Hamster combines non-hidden files in `instructions/` in filename order when it opens. Settings saves the combined text to `instructions/prompt.md`. Relaunch after editing instruction files directly.
+Hamster combines non-hidden files in the selected instructions folder in filename order when it opens. The default is `./instructions`. Relaunch after editing instruction files directly.
 
 Add scripts to `tools/` and skill guides to `skills/`, or select other folders in Settings.
 

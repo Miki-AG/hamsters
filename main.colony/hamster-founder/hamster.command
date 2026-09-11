@@ -18,7 +18,7 @@
 export PATH="/usr/local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:$HOME/.gemini/bin:$HOME/.codex/bin:$HOME/.claude/bin:$HOME/bin:$PATH"
 
 # Persistent Unique Hamster Identity placeholder (auto-populated on first run or clone)
-HAMSTER_ID="HAMSTER_ID_PLACEHOLDER"
+HAMSTER_ID="hamster-8a26218c"
 
 # Canonical path to this script and its containing Hamster folder
 SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
@@ -130,8 +130,8 @@ function run(argv) {
     const logFile = hamsterDir + "/last_run.log";
     const pidFile = hamsterDir + "/app.pid";
     const stateFile = hamsterDir + "/state.txt";
-    const instructionsDir = workerDir + "/instructions";
-    const promptFile = instructionsDir + "/prompt.md";
+    let instructionsDir = workerDir + "/instructions";
+    let promptFile = instructionsDir + "/prompt.md";
     const toolsDir = workerDir + "/tools";
     const skillsDir = workerDir + "/skills";
     const defaultPrompt = "Read the input file, process it according to the requested transformation, and write the resulting output file to the specified output folder.";
@@ -318,6 +318,7 @@ function run(argv) {
         homeFolder: defaultHome,
         inputFolder: defaultInbox,
         outputFolder: defaultOutbox,
+        instructionsFolder: instructionsDir,
         agent: "gemini",
         instructions: defaultPrompt,
         tools: [toolsDir],
@@ -344,6 +345,7 @@ function run(argv) {
         config.homeFolder = remapMovedPath(config.homeFolder, previousWorkerDir, workerDir);
         config.inputFolder = remapMovedPath(config.inputFolder, previousWorkerDir, workerDir);
         config.outputFolder = remapMovedPath(config.outputFolder, previousWorkerDir, workerDir);
+        config.instructionsFolder = remapMovedPath(config.instructionsFolder, previousWorkerDir, workerDir);
         config.tools = (config.tools || []).map(path => remapMovedPath(path, previousWorkerDir, workerDir));
         config.skills = (config.skills || []).map(path => remapMovedPath(path, previousWorkerDir, workerDir));
     }
@@ -356,6 +358,10 @@ function run(argv) {
     config.homeFolder = fromDisplayPath(config.homeFolder, workerDir);
     config.inputFolder = fromDisplayPath(config.inputFolder, config.homeFolder);
     config.outputFolder = fromDisplayPath(config.outputFolder, config.homeFolder);
+    if (!config.instructionsFolder) config.instructionsFolder = instructionsDir;
+    config.instructionsFolder = fromDisplayPath(config.instructionsFolder, workerDir);
+    instructionsDir = config.instructionsFolder;
+    promptFile = instructionsDir + "/prompt.md";
     if (!config.instructions) config.instructions = defaultPrompt;
     if (!Array.isArray(config.tools)) config.tools = [toolsDir];
     if (!Array.isArray(config.skills)) config.skills = [skillsDir];
@@ -388,11 +394,11 @@ function run(argv) {
     recoverClaims();
 
     function saveConfig() {
-        const jsonStr = JSON.stringify(config, null, 2);
+        const persistedConfig = Object.assign({}, config);
+        delete persistedConfig.instructions;
+        const jsonStr = JSON.stringify(persistedConfig, null, 2);
         const nsStr = $.NSString.stringWithString(jsonStr);
         nsStr.writeToFileAtomicallyEncodingError(configFile, true, $.NSUTF8StringEncoding, $());
-        makeDir(instructionsDir);
-        writeText(promptFile, config.instructions + "\n");
     }
 
     saveConfig();
@@ -694,34 +700,23 @@ function run(argv) {
 
     createLabel(getSelectedBackendPath(), 330, sTop - 164, 255, 20, false, 10, settingsView, false);
 
-    // Instructions
-    createLabel("Instructions / Prompt Template:", 15, sTop - 194, 250, 20, true, 12, settingsView, false);
-    const scrollInstr = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(15, sTop - 276, 570, 78));
-    scrollInstr.setHasVerticalScroller(true);
-    scrollInstr.setBorderType($.NSBezelBorder);
-
-    const instrTextView = $.NSTextView.alloc.initWithFrame(scrollInstr.contentView.frame);
-    instrTextView.setMinSize($.NSMakeSize(0.0, 78));
-    instrTextView.setMaxSize($.NSMakeSize(10000.0, 10000.0));
-    instrTextView.setVerticallyResizable(true);
-    instrTextView.setHorizontallyResizable(false);
-    instrTextView.setAutoresizingMask($.NSViewWidthSizable);
-    instrTextView.setString(config.instructions || "");
-    instrTextView.setFont($.NSFont.systemFontOfSize(12));
-    scrollInstr.setDocumentView(instrTextView);
-    settingsView.addSubview(scrollInstr);
+    // Instructions Folder
+    createLabel("Instructions Folder:", 15, sTop - 194, 120, 20, true, 12, settingsView, false);
+    const instructionsField = createTextField(toDisplayPath(config.instructionsFolder, config.homeFolder), 140, sTop - 194, 275, 22, settingsView);
+    const btnChooseInstructions = createButton("Choose…", 420, sTop - 196, 78, 26, settingsView);
+    const btnOpenInstructions = createButton("📂 Open", 502, sTop - 196, 83, 26, settingsView);
 
     // Tools List
     createLabel("Tools Folders:", 15, sTop - 308, 120, 20, true, 12, settingsView, false);
-    const toolsField = createTextField(config.tools.join("; "), 140, sTop - 308, 275, 22, settingsView);
-    const btnAddTool = createButton("Add…", 420, sTop - 310, 78, 26, settingsView);
-    const btnClearTools = createButton("Clear", 502, sTop - 310, 83, 26, settingsView);
+    const toolsField = createTextField(config.tools.join("; "), 140, sTop - 227, 275, 22, settingsView);
+    const btnAddTool = createButton("Add…", 420, sTop - 229, 78, 26, settingsView);
+    const btnClearTools = createButton("Clear", 502, sTop - 229, 83, 26, settingsView);
 
     // Skills List
     createLabel("Skills Folders:", 15, sTop - 340, 120, 20, true, 12, settingsView, false);
-    const skillsField = createTextField(config.skills.join("; "), 140, sTop - 340, 275, 22, settingsView);
-    const btnAddSkill = createButton("Add…", 420, sTop - 342, 78, 26, settingsView);
-    const btnClearSkills = createButton("Clear", 502, sTop - 342, 83, 26, settingsView);
+    const skillsField = createTextField(config.skills.join("; "), 140, sTop - 259, 275, 22, settingsView);
+    const btnAddSkill = createButton("Add…", 420, sTop - 261, 78, 26, settingsView);
+    const btnClearSkills = createButton("Clear", 502, sTop - 261, 83, 26, settingsView);
 
     // Settings Footer Buttons
     const btnSave = createButton("💾 Save Configuration", 15, 20, 175, 36, settingsView);
@@ -960,13 +955,18 @@ function run(argv) {
 
                         config.inputFolder = fromDisplayPath(ObjC.unwrap(inputField.stringValue), chosen);
                         config.outputFolder = fromDisplayPath(ObjC.unwrap(outputField.stringValue), chosen);
+                        config.instructionsFolder = fromDisplayPath(ObjC.unwrap(instructionsField.stringValue), chosen);
 
                         inputField.setStringValue(toDisplayPath(config.inputFolder, chosen));
                         outputField.setStringValue(toDisplayPath(config.outputFolder, chosen));
+                        instructionsField.setStringValue(toDisplayPath(config.instructionsFolder, chosen));
+                        instructionsDir = config.instructionsFolder;
+                        promptFile = instructionsDir + "/prompt.md";
 
                         makeDir(config.homeFolder);
                         makeDir(config.inputFolder);
                         makeDir(config.outputFolder);
+                        makeDir(config.instructionsFolder);
                         saveConfig();
                     }
                 }
@@ -1027,6 +1027,35 @@ function run(argv) {
                 types: ["void", ["id"]],
                 implementation: function(sender) {
                     const fullPath = fromDisplayPath(ObjC.unwrap(outputField.stringValue), config.homeFolder);
+                    if (fullPath) {
+                        makeDir(fullPath);
+                        $.NSWorkspace.sharedWorkspace.openFile(fullPath);
+                    }
+                }
+            },
+            "onChooseInstructions:": {
+                types: ["void", ["id"]],
+                implementation: function(sender) {
+                    const panel = $.NSOpenPanel.openPanel;
+                    panel.canChooseFiles = false;
+                    panel.canChooseDirectories = true;
+                    panel.allowsMultipleSelection = false;
+                    panel.setMessage("Choose Instructions Folder for Hamster");
+                    if (panel.runModal == $.NSModalResponseOK) {
+                        const chosen = ObjC.unwrap(panel.URLs.objectAtIndex(0).path);
+                        config.instructionsFolder = chosen;
+                        instructionsField.setStringValue(toDisplayPath(chosen, config.homeFolder));
+                        instructionsDir = chosen;
+                        promptFile = instructionsDir + "/prompt.md";
+                        makeDir(chosen);
+                        saveConfig();
+                    }
+                }
+            },
+            "onOpenInstructions:": {
+                types: ["void", ["id"]],
+                implementation: function(sender) {
+                    const fullPath = fromDisplayPath(ObjC.unwrap(instructionsField.stringValue), config.homeFolder);
                     if (fullPath) {
                         makeDir(fullPath);
                         $.NSWorkspace.sharedWorkspace.openFile(fullPath);
@@ -1107,7 +1136,11 @@ function run(argv) {
                         config.homeFolder = homeDir;
                         config.inputFolder = inDir;
                         config.outputFolder = outDir;
-                        config.instructions = ObjC.unwrap(instrTextView.string);
+                        config.instructionsFolder = fromDisplayPath(ObjC.unwrap(instructionsField.stringValue), homeDir);
+                        makeDir(config.instructionsFolder);
+                        instructionsDir = config.instructionsFolder;
+                        promptFile = instructionsDir + "/prompt.md";
+                        config.instructions = readInstructions();
                         const selAgent = agentPopup.indexOfSelectedItem;
                         config.agent = (selAgent === 2 ? "codex" : (selAgent === 1 ? "claude" : "gemini"));
                         saveConfig();
@@ -1134,7 +1167,11 @@ function run(argv) {
                     config.homeFolder = ObjC.unwrap(homeField.stringValue).trim() || config.homeFolder;
                     config.inputFolder = fromDisplayPath(ObjC.unwrap(inputField.stringValue), config.homeFolder);
                     config.outputFolder = fromDisplayPath(ObjC.unwrap(outputField.stringValue), config.homeFolder);
-                    config.instructions = ObjC.unwrap(instrTextView.string);
+                    config.instructionsFolder = fromDisplayPath(ObjC.unwrap(instructionsField.stringValue), config.homeFolder);
+                    makeDir(config.instructionsFolder);
+                    instructionsDir = config.instructionsFolder;
+                    promptFile = instructionsDir + "/prompt.md";
+                    config.instructions = readInstructions();
                     config.tools = ObjC.unwrap(toolsField.stringValue).split(";").map(function(path) {
                         return path.trim();
                     }).filter(function(path) {
@@ -1203,6 +1240,7 @@ function run(argv) {
                         homeFolder: newHome,
                         inputFolder: newInbox,
                         outputFolder: newOutbox,
+                        instructionsFolder: newHamsterDir + "/instructions",
                         tools: [newHamsterDir + "/tools"],
                         skills: [newHamsterDir + "/skills"]
                     });
@@ -1211,8 +1249,6 @@ function run(argv) {
                     newConfigStr.writeToFileAtomicallyEncodingError(
                         newHamsterDir + "/.hamster/config.json", true, $.NSUTF8StringEncoding, $()
                     );
-                    makeDir(newHamsterDir + "/instructions");
-                    writeText(newHamsterDir + "/instructions/prompt.md", config.instructions + "\n");
 
                     $.NSWorkspace.sharedWorkspace.openFile(destPath);
                 }
@@ -1329,6 +1365,12 @@ function run(argv) {
 
     btnOpenOutput.setTarget(coordinator);
     btnOpenOutput.setAction("onOpenOutput:");
+
+    btnChooseInstructions.setTarget(coordinator);
+    btnChooseInstructions.setAction("onChooseInstructions:");
+
+    btnOpenInstructions.setTarget(coordinator);
+    btnOpenInstructions.setAction("onOpenInstructions:");
 
     btnAddTool.setTarget(coordinator);
     btnAddTool.setAction("onAddTool:");

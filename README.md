@@ -30,13 +30,14 @@ The optional [`colony.command`](main.colony/colony.command) provides a separate 
 
 1. **Double-click `hamster.command`**: A native Mac window opens with worker controls and settings.
 2. **Hit `▶ Start Hamster`**: The Hamster starts watching its inbox.
-3. **Drop files in `inbox`**: PDFs, code snippets, notes, images—whatever you want processed.
-4. **Collect results in `outbox`**: The Hamster picks up files one by one, does the work, and places the final files in the outbox.
+3. **Drop files in `input/`**: Add files your chosen AI CLI can process, such as PDFs, code snippets, notes, or images.
+4. **Collect results in `output/`**: The Hamster processes files one by one and removes each input after it delivers the results successfully.
 
 The default folders are `./input` and `./output` inside the Hamster folder. The UI labels them Inbox and Outbox, and both can be changed with the folder selectors.
 
-If something fails, the Hamster puts your input file safely back in the inbox so nothing gets lost.
-Any output produced during a failed run is still moved to the outbox with a timestamped `.error` suffix, and the staging folder is cleared.
+While processing, the window shows an animated indicator, the current filename, elapsed time, and log size. The agent's standard output and error output go to `.hamster/last_run.log`, which is replaced when the next task starts.
+
+The agent writes to a temporary output folder, and Hamster delivers those files to the configured outbox. For a failed run, it adds a timestamped `.error` suffix to the output filenames. If the agent produces no output, Hamster writes an error file instead. After delivery, it clears the temporary folder and returns failed inputs to the inbox. If delivery itself fails, files remain in `.hamster/work/` for recovery.
 Files ending in `.error` are ignored by workers and excluded from the normal inbox and outbox counts; the outbox shows their total separately in red.
 
 ---
@@ -71,17 +72,49 @@ Each folder is a colony. Its `colony.command` lists only the Hamster folders ins
 
 Click **✨ Breed Colony** to create and open a new colony beside the current folder. The new `colony-<id>.colony/` folder contains `colony.command` and a single `hamster-<id>/hamster.command`, whose folder name matches its fresh worker ID. That worker starts stopped with default settings and separate working folders. Use **✨ Breed** inside the new colony to add more workers. Both breeding actions copy the prompt, tools, and skills bundle into the new Hamster.
 
-To create a fresh colony with the same number of scripts as an existing one:
+To duplicate a colony with all its worker folders:
 
-1. Duplicate the entire `main.colony/` folder in Finder.
-2. Rename the copy, for example `research.colony/`.
-3. Open `research.colony/colony.command` to register its workers and manage that colony.
+1. Open the original `colony.command` once to register its workers, then quit the colony and its workers.
+2. Duplicate the entire colony folder in Finder and rename the copy, for example `research.colony/`.
+3. Keep the original in place and open `research.colony/colony.command` to register the copied workers.
 
-Copied workers get new IDs and start stopped with default settings and separate working folders. Runtime state, custom paths, and queued files are not copied by this operation. Each worker uses your existing AI CLI authentication.
+When the recorded original script still exists, a copied worker gets a new ID and resets its copied runtime data and settings. It starts stopped with the default folders. Finder also copies `prompt.md`, `skills/`, `tools/`, and **all files in `input/` and `output/`**. Remove any copied queue files you do not want before starting the workers. Each worker uses your existing AI CLI authentication.
 
-**Breed** creates a new script in the same colony folder. To move an existing worker or rename a colony, quit its workers first, move or rename the folder, and reopen Colony. When the old script path no longer exists, workers keep their IDs, settings, and working folders.
+**Breed** creates a new worker folder in the same colony with empty input and output folders. To move an existing worker or rename a colony, quit its workers first, move or rename the folder, and reopen Colony. When the recorded original script no longer exists, the worker keeps its ID and runtime data. Check saved folder paths before starting it, since configuration can contain absolute paths to the old location or external folders.
 
-Each Hamster folder contains its `hamster.command`, `prompt.md`, `input/`, `output/`, `skills/`, and `tools/`. Hidden `.hamster/` data contains its configuration, state, PID, log, and private claim/staging folders. Moving or copying a Hamster keeps its bundle together; copied bundles receive fresh IDs and runtime state.
+## Files in a Hamster
+
+The repository includes `main.colony/colony.command` and the original worker in `main.colony/hamster-founder/`. Each worker stores its assets and runtime files together:
+
+```text
+hamster-founder/          # Bred workers use hamster-<id>/
+    hamster.command
+    input/
+    output/
+    prompt.md
+    skills/
+    tools/
+    .hamster/            # Created at runtime
+        config.json
+        location.txt
+        state.txt
+        app.pid          # Present while the worker runs
+        last_run.log
+        work/
+            claim/
+            output_staging/
+```
+
+`input/`, `output/`, `skills/`, and `tools/` ship with only `.gitkeep` placeholders. Add your own skill guides and tools to the worker's folders. No personal tools or skills are bundled with the project.
+
+The repository's `.gitignore` excludes:
+
+- Additional worker folders inside `main.colony/`.
+- Sibling colony folders named `*.colony/`, except `main.colony/` itself.
+- Runtime data under `.hamster/` and working files under `input/` and `output/`.
+- Local contents of the founder's `skills/` and `tools/`, except their `.gitkeep` placeholders.
+
+The founder's `prompt.md` is tracked. Editing its prompt, including through **Save Configuration**, appears in `git diff`. Use a bred worker or a separate `*.colony/` folder for personal prompts you want Git to ignore. Ignore rules do not hide files that are already tracked.
 
 For development, run `node tests/colonies.cjs` on macOS to check registration, copying, moving, and colony controls using temporary files and the native automation runtime. Node is only needed for this test script.
 
@@ -155,9 +188,9 @@ Each workflow has a dedicated inbox per stage. Workers sharing an inbox compete 
 
 ## ✨ Breeding: Instant Duplication
 
-Need another worker for a different job? Click **`✨ Breed Hamster`** on the wheel or in the Colony.
+Need another worker for a different job? Click **Breed Hamster** in the worker window or **Breed** in the colony window.
 
-A new `hamster-<id>/hamster.command` bundle is generated in the same colony and launches with its own input, output, prompt, tools, skills, and settings.
+A new `hamster-<id>/` folder appears in the same colony with a fresh ID, its own script, and empty `input/` and `output/` folders. Breeding copies `prompt.md`, `tools/`, and `skills/` from the source worker. Review the new worker's settings before starting it.
 
 ---
 
@@ -165,11 +198,11 @@ A new `hamster-<id>/hamster.command` bundle is generated in the same colony and 
 
 Open the **⚙️ Settings** tab to configure a worker:
 
-- **Hamster Home**: The Hamster folder containing its script and bundled assets.
-- **Input & Output**: Change the folders it watches and outputs to.
+- **Hamster Home**: The base directory for relative input and output paths. It defaults to the folder containing `hamster.command`. Changing it does not move the script or its assets.
+- **Input & Output**: Choose the folders it watches and delivers results to. The defaults are `./input` and `./output`.
 - **AI Backend**: Choose between **Gemini (`agy`)**, **Claude (`claude`)**, or **Codex (`codex`)**.
-- **Prompt Template**: Tell the Hamster exactly what to do with the files it receives.
-- **Tools & Skills**: Point to folders containing scripts or skill guides the AI should use while working.
+- **Prompt Template**: Tell the Hamster what to do with each input. Hamster loads `prompt.md` when it opens and writes it when you save settings. If you edit the file directly, relaunch the worker to load the changes.
+- **Tools & Skills**: Use the worker's local `tools/` and `skills/` folders by default, or select other folders containing scripts and skill guides for the agent.
 
 ---
 

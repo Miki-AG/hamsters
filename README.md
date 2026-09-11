@@ -1,6 +1,6 @@
 # 🐹 Hamster
 
-**A native Mac GUI for AI workers, packed into one single shell script.**
+**A local AI worker with a GUI for batch processing, packed into one single file.**
 
 No installer, server, or third-party libraries.
 

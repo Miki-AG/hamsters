@@ -88,7 +88,8 @@ try {
         fs.mkdirSync(path.join(workerDir, 'skills'), { recursive: true });
         fs.mkdirSync(path.join(workerDir, 'tools'), { recursive: true });
         fs.writeFileSync(path.join(workerDir, 'hamster.command'), source, { mode: 0o755 });
-        fs.writeFileSync(path.join(workerDir, 'prompt.md'), 'Test prompt\n');
+        fs.mkdirSync(path.join(workerDir, 'instructions'), { recursive: true });
+        fs.writeFileSync(path.join(workerDir, 'instructions', 'prompt.md'), 'Test prompt\n');
     }
     fs.copyFileSync(path.join(project, 'main.colony/colony.command'), path.join(original, 'colony.command'));
 
@@ -106,7 +107,7 @@ try {
         assert.equal(config.outputFolder, path.join(h.dir, 'output'));
         assert.deepEqual(config.tools, [path.join(h.dir, 'tools')]);
         assert.deepEqual(config.skills, [path.join(h.dir, 'skills')]);
-        for (const asset of ['prompt.md', 'input', 'output', 'skills', 'tools', '.hamster']) {
+        for (const asset of ['instructions', 'input', 'output', 'skills', 'tools', '.hamster']) {
             assert(fs.existsSync(path.join(h.dir, asset)), asset);
         }
     }
@@ -147,7 +148,7 @@ try {
         assert.equal(workers.length, 1);
         assert.equal(path.basename(workers[0].scriptPath), 'hamster.command');
         assert.equal(path.basename(path.dirname(workers[0].scriptPath)), workers[0].id);
-        for (const asset of ['prompt.md', 'input', 'output', 'skills', 'tools']) {
+        for (const asset of ['instructions', 'input', 'output', 'skills', 'tools']) {
             assert(fs.existsSync(path.join(folder, files[1], asset)), asset);
         }
         assert(!newWorkerIds.has(workers[0].id));

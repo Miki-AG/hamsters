@@ -130,7 +130,8 @@ function run(argv) {
     const logFile = hamsterDir + "/last_run.log";
     const pidFile = hamsterDir + "/app.pid";
     const stateFile = hamsterDir + "/state.txt";
-    const promptFile = workerDir + "/prompt.md";
+    const instructionsDir = workerDir + "/instructions";
+    const promptFile = instructionsDir + "/prompt.md";
     const toolsDir = workerDir + "/tools";
     const skillsDir = workerDir + "/skills";
     const defaultPrompt = "Read the input file, process it according to the requested transformation, and write the resulting output file to the specified output folder.";
@@ -183,6 +184,15 @@ function run(argv) {
         } catch (e) {
             return "";
         }
+    }
+
+    function readInstructions() {
+        const files = listDir(instructionsDir)
+            .filter(name => !name.startsWith(".") && !name.endsWith(".tmp"))
+            .sort();
+        return files.map(name => readText(instructionsDir + "/" + name).trim())
+            .filter(text => text.length > 0)
+            .join("\n\n");
     }
 
     function removePath(path) {
@@ -353,11 +363,12 @@ function run(argv) {
     config.skills = config.skills.map(path => fromDisplayPath(path, workerDir));
 
     makeDir(workerDir);
+    makeDir(instructionsDir);
     makeDir(toolsDir);
     makeDir(skillsDir);
-    if (fm.fileExistsAtPath(promptFile)) {
-        const promptText = readText(promptFile).trim();
-        if (promptText) config.instructions = promptText;
+    const instructionText = readInstructions();
+    if (instructionText) {
+        config.instructions = instructionText;
     } else {
         writeText(promptFile, config.instructions + "\n");
     }
@@ -380,6 +391,7 @@ function run(argv) {
         const jsonStr = JSON.stringify(config, null, 2);
         const nsStr = $.NSString.stringWithString(jsonStr);
         nsStr.writeToFileAtomicallyEncodingError(configFile, true, $.NSUTF8StringEncoding, $());
+        makeDir(instructionsDir);
         writeText(promptFile, config.instructions + "\n");
     }
 
@@ -1161,7 +1173,7 @@ function run(argv) {
                     const nsCode = $.NSString.stringWithString(codeStr);
                     nsCode.writeToFileAtomicallyEncodingError(destPath, true, $.NSUTF8StringEncoding, $());
 
-                    for (let asset of ["prompt.md", "skills", "tools"]) {
+                    for (let asset of ["instructions", "skills", "tools"]) {
                         const sourceAsset = workerDir + "/" + asset;
                         if (fm.fileExistsAtPath(sourceAsset)) {
                             fm.copyItemAtPathToPathError(sourceAsset, newHamsterDir + "/" + asset, $());
@@ -1199,7 +1211,8 @@ function run(argv) {
                     newConfigStr.writeToFileAtomicallyEncodingError(
                         newHamsterDir + "/.hamster/config.json", true, $.NSUTF8StringEncoding, $()
                     );
-                    writeText(newHamsterDir + "/prompt.md", config.instructions + "\n");
+                    makeDir(newHamsterDir + "/instructions");
+                    writeText(newHamsterDir + "/instructions/prompt.md", config.instructions + "\n");
 
                     $.NSWorkspace.sharedWorkspace.openFile(destPath);
                 }

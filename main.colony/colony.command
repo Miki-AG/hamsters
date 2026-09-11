@@ -249,7 +249,7 @@ function run(argv) {
                 throw new Error("Could not create the colony's Hamster script.");
             }
             const sourceDir = templatePath.substring(0, templatePath.lastIndexOf("/"));
-            for (let asset of ["prompt.md", "skills", "tools"]) {
+            for (let asset of ["instructions", "skills", "tools"]) {
                 const sourceAsset = sourceDir + "/" + asset;
                 if (fm.fileExistsAtPath(sourceAsset) && !fm.copyItemAtPathToPathError(sourceAsset, workerDir + "/" + asset, $())) {
                     throw new Error("Could not copy Hamster " + asset + ".");
@@ -504,7 +504,7 @@ function run(argv) {
                         const code = ObjC.unwrap(source).replace(/HAMSTER_ID="[^"]*"/, 'HAMSTER_ID="' + newId + '"');
                         $.NSString.stringWithString(code).writeToFileAtomicallyEncodingError(destPath, true, $.NSUTF8StringEncoding, $());
                         const sourceDir = templatePath.substring(0, templatePath.lastIndexOf("/"));
-                        for (let asset of ["prompt.md", "skills", "tools"]) {
+                        for (let asset of ["instructions", "skills", "tools"]) {
                             const sourceAsset = sourceDir + "/" + asset;
                             if (fm.fileExistsAtPath(sourceAsset)) {
                                 fm.copyItemAtPathToPathError(sourceAsset, newHamsterDir + "/" + asset, $());

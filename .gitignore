@@ -33,6 +33,9 @@ main.colony/hamster-founder/tools/**
 !main.colony/hamster-founder/tools/
 !main.colony/hamster-founder/tools/.gitkeep
 
+# Private worker instructions
+**/instructions/**
+
 # Local colonies (keep the canonical colony)
 /*.colony/
 !/main.colony/

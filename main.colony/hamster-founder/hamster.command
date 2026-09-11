@@ -708,15 +708,21 @@ function run(argv) {
 
     // Tools List
     createLabel("Tools Folders:", 15, sTop - 227, 120, 20, true, 12, settingsView, false);
-    const toolsField = createTextField(config.tools.join("; "), 140, sTop - 227, 275, 22, settingsView);
+    const toolsField = createTextField(config.tools.join("; "), 140, sTop - 271, 275, 66, settingsView);
+    toolsField.setUsesSingleLineMode(false);
+    toolsField.setMaximumNumberOfLines(3);
+    toolsField.setLineBreakMode($.NSLineBreakByWordWrapping);
     const btnAddTool = createButton("Add…", 420, sTop - 229, 78, 26, settingsView);
     const btnClearTools = createButton("Clear", 502, sTop - 229, 83, 26, settingsView);
 
     // Skills List
-    createLabel("Skills Folders:", 15, sTop - 259, 120, 20, true, 12, settingsView, false);
-    const skillsField = createTextField(config.skills.join("; "), 140, sTop - 259, 275, 22, settingsView);
-    const btnAddSkill = createButton("Add…", 420, sTop - 261, 78, 26, settingsView);
-    const btnClearSkills = createButton("Clear", 502, sTop - 261, 83, 26, settingsView);
+    createLabel("Skills Folders:", 15, sTop - 292, 120, 20, true, 12, settingsView, false);
+    const skillsField = createTextField(config.skills.join("; "), 140, sTop - 336, 275, 66, settingsView);
+    skillsField.setUsesSingleLineMode(false);
+    skillsField.setMaximumNumberOfLines(3);
+    skillsField.setLineBreakMode($.NSLineBreakByWordWrapping);
+    const btnAddSkill = createButton("Add…", 420, sTop - 294, 78, 26, settingsView);
+    const btnClearSkills = createButton("Clear", 502, sTop - 294, 83, 26, settingsView);
 
     // Settings Footer Buttons
     const btnSave = createButton("💾 Save Configuration", 15, 20, 175, 36, settingsView);

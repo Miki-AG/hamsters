@@ -1,5 +1,4 @@
 # macOS System Files
-**/.DS_Store
 .AppleDouble
 .LSOverride
 ._*
@@ -57,3 +56,6 @@ main.colony/hamster-founder/tools/**
 # Agent customizations & local playbooks
 .agents/
 AGENTS.md
+
+# Ignore Finder metadata even inside the founder bundle
+**/.DS_Store

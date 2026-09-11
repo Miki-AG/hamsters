@@ -8,6 +8,8 @@ Connect one worker's outbox to another's inbox to chain tasks. Hamsters are comp
 
 No installer or server, or third-party libraries. Distributed as a single file.
 
+[MIT licensed](LICENSE).
+
 Requires macOS 12+ and an installed, authenticated Gemini (`agy` or `gemini`), Claude (`claude`), or Codex (`codex`) CLI. Hamster uses your existing CLI authentication and adds no extra dependencies.
 
 The app runs locally on your Mac; the AI CLI you select determines where inference runs. Claude and Gemini are launched with permission prompts bypassed.

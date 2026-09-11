@@ -1,6 +1,6 @@
 # 🐹 Hamster
 
-**A local AI worker with a GUI for batch processing, packed into one single file.**
+**A local AI worker for batch processing, with a GUI, distributed as a single file.**
 
 No installer, server, or third-party libraries.
 

@@ -19,13 +19,8 @@ if [[ ! -f "$template" ]]; then
     exit 1
 fi
 
-if ! command -v envsubst >/dev/null 2>&1; then
-    echo "envsubst is required. Install gettext, then try again." >&2
-    exit 1
-fi
-
 output_folder=""
-format=""
+fields=()
 field_count=0
 for field in "$@"; do
     if [[ "$field" != *=* ]]; then
@@ -44,7 +39,7 @@ for field in "$@"; do
         continue
     fi
     export "$field"
-    format="${format}\$${key}"
+    fields+=("$key")
     field_count=$((field_count + 1))
 done
 
@@ -61,9 +56,12 @@ run_id=$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)
 output_file="$output_folder/${template_stem}-$(date +%Y%m%d-%H%M%S)-${run_id}.txt"
 tmp_file="$output_file.tmp.$$"
 
-if ! envsubst "$format" < "$template" > "$tmp_file"; then
-    rm -f "$tmp_file"
-    exit 1
-fi
+IFS= read -r -d '' rendered < "$template" || true
+for key in "${fields[@]}"; do
+    value=${!key}
+    placeholder="\${$key}"
+    rendered=${rendered//"$placeholder"/$value}
+done
+printf '%s' "$rendered" > "$tmp_file"
 mv "$tmp_file" "$output_file"
 printf '%s\n' "$output_file"

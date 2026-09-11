@@ -6,7 +6,7 @@ Give it a prompt. Drop a bunch of files into the inbox. Hamster runs your AI CLI
 
 Connect one worker's outbox to another's inbox to chain tasks. Hamsters are composable.
 
-No installer or server, or third-party libraries. Distributed as a single file.
+No installer or server. Hamster adds no package dependencies and invokes the AI CLI you choose.
 
 [MIT licensed](LICENSE).
 
@@ -32,7 +32,8 @@ The repo comes with a working travel-agent example (`main.colony/hamster-founder
 Only an instruction file and an input file are required for a first run. Skills and tools are optional extensions for reusable procedures and command-line helpers.
 
 1. Double-click [`main.colony/hamster-founder/hamster.command`](main.colony/hamster-founder/hamster.command) to open the hamster UI.
-2. Click **Start Hamster** (the play button). The hamster will process the file and write a custom email.
+2. Select an installed AI backend in **Settings**. The founder defaults to Gemini.
+3. Click **Start Hamster** (the play button). The hamster will process the file and write a custom email.
 
 Drop any other customer and package brief into its `input/` folder; the hamster writes the finished email to `output/` automatically.
 
@@ -73,7 +74,7 @@ Hamster combines non-hidden files in the selected instructions folder in filenam
 
 Add scripts to `tools/` and skill guides to `skills/`, or select other folders in Settings.
 
-Git ignores local instructions, tools, skills, queue contents, and runtime data. It also ignores additional workers in `main.colony/` and sibling `*.colony/` folders. Already tracked files remain tracked.
+Git ignores generated queue contents, output files, runtime data, and additional workers in `main.colony/` or sibling `*.colony/` folders. The founder's `instructions/`, `skills/`, `tools/`, and `input/` files are tracked as the working example.
 
 ## How a script becomes a GUI
 

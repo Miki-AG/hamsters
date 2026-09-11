@@ -34,6 +34,8 @@ The optional [`colony.command`](main.colony/colony.command) provides a separate 
 4. **Collect results in `outbox`**: The Hamster picks up files one by one, does the work, and places the final files in the outbox.
 
 If something fails, the Hamster puts your input file safely back in the inbox so nothing gets lost.
+Any output produced during a failed run is still moved to the outbox with a timestamped `.error` suffix, and the staging folder is cleared.
+Files ending in `.error` are ignored by workers and excluded from the normal inbox and outbox counts; the outbox shows their total separately in red.
 
 ---
 

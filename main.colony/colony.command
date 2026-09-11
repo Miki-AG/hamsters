@@ -60,6 +60,10 @@ function run(argv) {
         return [];
     }
 
+    function isErrorFile(filename) {
+        return String(filename).toLowerCase().endsWith(".error");
+    }
+
     function readJSON(file) {
         if (!fm.fileExistsAtPath(file)) return null;
         try {
@@ -280,8 +284,10 @@ function run(argv) {
             const inDir = cfg.inputFolder || (homeDir + "/inbox");
             const outDir = cfg.outputFolder || (homeDir + "/outbox");
 
-            const inCount = listDir(inDir).filter(n => !n.startsWith(".") && !n.endsWith(".hamster_claim") && !n.endsWith(".tmp")).length;
-            const outCount = listDir(outDir).filter(n => !n.startsWith(".")).length;
+            const inCount = listDir(inDir).filter(n => !n.startsWith(".") && !n.endsWith(".hamster_claim") && !n.endsWith(".tmp") && !isErrorFile(n)).length;
+            const outItems = listDir(outDir).filter(n => !n.startsWith("."));
+            const outCount = outItems.filter(n => !isErrorFile(n)).length;
+            const errorCount = outItems.filter(n => isErrorFile(n)).length;
 
             list.push({
                 id: id,
@@ -295,6 +301,7 @@ function run(argv) {
                 pid: pid,
                 inCount: inCount,
                 outCount: outCount,
+                errorCount: errorCount,
                 dir: hDir,
                 stateFile: stateFile
             });
@@ -376,6 +383,8 @@ function run(argv) {
             outCountLabel.setTextColor($.NSColor.systemGreenColor);
             const outSub = createLabel("finished", 221, 25, 60, 20, false, 11, card);
             outSub.setTextColor($.NSColor.secondaryLabelColor);
+            const errorSub = createLabel(h.errorCount + " errors", 221, 7, 70, 16, false, 10, card);
+            errorSub.setTextColor(h.errorCount > 0 ? $.NSColor.systemRedColor : $.NSColor.secondaryLabelColor);
 
             // Right Column: Name on Top (12px top margin), Buttons Below (12px bottom margin)
             const statusDot = h.isWorkerRunning ? "🟢" : "⚪️";

@@ -189,11 +189,47 @@ function run(argv) {
         return fm.attributesOfItemAtPathError(path, $());
     }
 
-    function cleanDir(dir) {
-        const items = listDir(dir);
-        for (let item of items) {
-            removePath(dir + "/" + item);
+    function writeText(path, text) {
+        const ns = $.NSString.stringWithString(text || "");
+        ns.writeToFileAtomicallyEncodingError(path, true, $.NSUTF8StringEncoding, $());
+    }
+
+    function appendLog(text) {
+        let existing = "";
+        if (fm.fileExistsAtPath(logFile)) {
+            try {
+                existing = ObjC.unwrap($.NSString.stringWithContentsOfFileEncodingError(logFile, $.NSUTF8StringEncoding, $()));
+            } catch (e) {}
         }
+        writeText(logFile, existing + text);
+    }
+
+    function formatDuration(totalSeconds) {
+        const seconds = Math.max(0, Math.floor(totalSeconds));
+        const minutes = Math.floor(seconds / 60);
+        const remainder = seconds % 60;
+        return minutes > 0 ? minutes + "m " + (remainder < 10 ? "0" : "") + remainder + "s" : seconds + "s";
+    }
+
+    function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    }
+
+    function isErrorFile(filename) {
+        return String(filename).toLowerCase().endsWith(".error");
+    }
+
+    function errorOutputPath(outDir, filename) {
+        const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+        let candidate = outDir + "/" + filename + "." + stamp + ".error";
+        let suffix = 2;
+        while (fm.fileExistsAtPath(candidate)) {
+            candidate = outDir + "/" + filename + "." + stamp + "-" + suffix + ".error";
+            suffix++;
+        }
+        return candidate;
     }
 
     function shellQuote(value) {
@@ -455,26 +491,38 @@ function run(argv) {
     controlsBox.setFillColor($.NSColor.controlBackgroundColor);
     wheelView.addSubview(controlsBox);
 
-    const btnStartStop = createButton("▶ Start Hamster", 15, 30, 165, 46, controlsBox);
+    createLabel("⚙️", 18, 16, 46, 60, false, 36, controlsBox, false);
+    const workerStateLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(68, 12, 115, 68));
+    workerStateLabel.setBezeled(false);
+    workerStateLabel.setDrawsBackground(false);
+    workerStateLabel.setEditable(false);
+    workerStateLabel.setSelectable(false);
+    workerStateLabel.setFont($.NSFont.boldSystemFontOfSize(48));
+    setLeftText(workerStateLabel, "0", $.NSColor.secondaryLabelColor);
+    controlsBox.addSubview(workerStateLabel);
+
+    const btnStartStop = createButton("▶ Start Hamster", 195, 30, 165, 46, controlsBox);
     btnStartStop.setFont($.NSFont.boldSystemFontOfSize(14));
 
-    createLabel("Status:", 195, 58, 60, 20, true, 12, controlsBox, false);
-    const statusLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(195, 28, 220, 26));
+    const statusLabel = $.NSTextField.alloc.initWithFrame($.NSMakeRect(195, 8, 220, 16));
     statusLabel.setBezeled(false);
     statusLabel.setDrawsBackground(false);
     statusLabel.setEditable(false);
     statusLabel.setSelectable(false);
-    statusLabel.setFont($.NSFont.boldSystemFontOfSize(14));
-    setCenterText(statusLabel, "Stopped", $.NSColor.secondaryLabelColor);
-    statusLabel.setAlignment($.NSTextAlignmentLeft);
-    if (statusLabel.cell) statusLabel.cell.setAlignment($.NSTextAlignmentLeft);
+    statusLabel.setFont($.NSFont.boldSystemFontOfSize(11));
+    setCenterText(statusLabel, "", $.NSColor.secondaryLabelColor);
     controlsBox.addSubview(statusLabel);
+
+    const progressDetailLabel = createLabel("", 15, 84, 400, 16, false, 11, controlsBox, false);
+    progressDetailLabel.setTextColor($.NSColor.secondaryLabelColor);
+
+    function setWorkerStateIndicator(working) {
+        setLeftText(workerStateLabel, working ? "1" : "0", working ? $.NSColor.systemOrangeColor : $.NSColor.secondaryLabelColor);
+    }
 
     const isAutoStart = argv.some(a => a === "--autostart");
     if (isAutoStart) {
         btnStartStop.setTitle("⏹ Stop Hamster");
-        statusLabel.setStringValue("🟢 Idle (Watching)");
-        statusLabel.setTextColor($.NSColor.systemGreenColor);
     }
 
     const btnWheelViewLog = createButton("📄 View Last Log", rowW - 165, 55, 145, 30, controlsBox);
@@ -503,8 +551,10 @@ function run(argv) {
     outboxBox.addSubview(outputCountLabel);
 
     createLabel("Outbox", 195, 50, 220, 24, true, 16, outboxBox, false);
-    const outDesc = createLabel("Completed items ready for pickup", 195, 26, 220, 18, false, 12, outboxBox, false);
+    const outDesc = createLabel("completed", 195, 26, 220, 18, false, 12, outboxBox, false);
     outDesc.setTextColor($.NSColor.secondaryLabelColor);
+    const outputErrorLabel = createLabel("0 errors", 195, 8, 220, 16, false, 11, outboxBox, false);
+    outputErrorLabel.setTextColor($.NSColor.secondaryLabelColor);
 
     const btnWheelOpenOutput = createButton("📂 Open Outbox", rowW - 155, 30, 135, 34, outboxBox);
 
@@ -588,15 +638,15 @@ function run(argv) {
 
     // Tools List
     createLabel("Tools Folders:", 15, sTop - 308, 120, 20, true, 12, settingsView, false);
-    const toolsField = createTextField(config.tools.join("; "), 140, sTop - 308, 295, 22, settingsView);
-    const btnAddTool = createButton("Add Folder…", 390, sTop - 310, 125, 26, settingsView);
-    const btnClearTools = createButton("Clear", 520, sTop - 310, 70, 26, settingsView);
+    const toolsField = createTextField(config.tools.join("; "), 140, sTop - 308, 275, 22, settingsView);
+    const btnAddTool = createButton("Add…", 420, sTop - 310, 78, 26, settingsView);
+    const btnClearTools = createButton("Clear", 502, sTop - 310, 83, 26, settingsView);
 
     // Skills List
     createLabel("Skills Folders:", 15, sTop - 340, 120, 20, true, 12, settingsView, false);
-    const skillsField = createTextField(config.skills.join("; "), 140, sTop - 340, 295, 22, settingsView);
-    const btnAddSkill = createButton("Add Folder…", 390, sTop - 342, 125, 26, settingsView);
-    const btnClearSkills = createButton("Clear", 520, sTop - 342, 70, 26, settingsView);
+    const skillsField = createTextField(config.skills.join("; "), 140, sTop - 340, 275, 22, settingsView);
+    const btnAddSkill = createButton("Add…", 420, sTop - 342, 78, 26, settingsView);
+    const btnClearSkills = createButton("Clear", 502, sTop - 342, 83, 26, settingsView);
 
     // Settings Footer Buttons
     const btnSave = createButton("💾 Save Configuration", 15, 20, 175, 36, settingsView);
@@ -612,17 +662,23 @@ function run(argv) {
     let currentTask = null;
     let activeClaimItem = null;
     let stabilityTracker = {};
+    let processingStartedAt = null;
+    let progressFrame = 0;
+    const progressFrames = ["|", "/", "-", "\\"];
 
     function checkWorkerHeartbeat() {
         const homeDir = ObjC.unwrap(homeField.stringValue).trim() || config.homeFolder;
         const currentInDir = fromDisplayPath(ObjC.unwrap(inputField.stringValue), homeDir);
         const currentOutDir = fromDisplayPath(ObjC.unwrap(outputField.stringValue), homeDir);
 
-        const inItems = listDir(currentInDir).filter(n => !n.startsWith(".") && !n.endsWith(".hamster_claim") && !n.endsWith(".tmp"));
+        const inItems = listDir(currentInDir).filter(n => !n.startsWith(".") && !n.endsWith(".hamster_claim") && !n.endsWith(".tmp") && !isErrorFile(n));
         const outItems = listDir(currentOutDir).filter(n => !n.startsWith("."));
+        const completedItems = outItems.filter(n => !isErrorFile(n));
+        const errorItems = outItems.filter(n => isErrorFile(n));
 
         setLeftText(inputCountLabel, "" + inItems.length, $.NSColor.systemBlueColor);
-        setLeftText(outputCountLabel, "" + outItems.length, $.NSColor.systemGreenColor);
+        setLeftText(outputCountLabel, "" + completedItems.length, $.NSColor.systemGreenColor);
+        setLeftText(outputErrorLabel, errorItems.length + " errors", errorItems.length > 0 ? $.NSColor.systemRedColor : $.NSColor.secondaryLabelColor);
 
         if (currentTask !== null) {
             if (!currentTask.isRunning) {
@@ -634,44 +690,54 @@ function run(argv) {
                 const outDir = config.outputFolder;
 
                 const stagingItems = listDir(stagingDir);
-                let hasOutput = (stagingItems.length > 0);
-                let preserveStaging = false;
+                let hadError = exitCode !== 0 || stagingItems.length === 0;
+                let deliverySucceeded = true;
 
-                if (exitCode === 0 && hasOutput) {
-                    const delivered = [];
-                    let deliverySucceeded = true;
-                    for (let item of stagingItems) {
-                        const src = stagingDir + "/" + item;
-                        const dest = outDir + "/" + item;
-                        if (fm.fileExistsAtPath(dest)) {
-                            deliverySucceeded = false;
-                            break;
-                        }
-                        if (movePath(src, dest)) delivered.push({ src: src, dest: dest });
-                        else {
-                            deliverySucceeded = false;
-                            break;
-                        }
+                for (let item of stagingItems) {
+                    const src = stagingDir + "/" + item;
+                    let dest = outDir + "/" + item;
+                    if (hadError || fm.fileExistsAtPath(dest)) {
+                        dest = errorOutputPath(outDir, item);
+                        hadError = true;
                     }
-                    if (deliverySucceeded) {
-                        removePath(claimPath);
-                        setCenterText(statusLabel, "Done: " + filename, $.NSColor.systemGreenColor);
-                    } else {
-                        for (let item of delivered) movePath(item.dest, item.src);
-                        if (fm.fileExistsAtPath(claimPath)) restoreClaim(claimPath, origPath);
-                        preserveStaging = true;
-                        setCenterText(statusLabel, "Error delivering: " + filename, $.NSColor.systemRedColor);
+                    if (!movePath(src, dest)) {
+                        const errorDest = errorOutputPath(outDir, item);
+                        if (!movePath(src, errorDest)) deliverySucceeded = false;
+                        else hadError = true;
                     }
-                } else {
-                    if (fm.fileExistsAtPath(claimPath)) {
-                        restoreClaim(claimPath, origPath);
-                    }
-                    setCenterText(statusLabel, "Error: " + filename, $.NSColor.systemRedColor);
                 }
 
-                if (!preserveStaging) cleanDir(stagingDir);
+                if (stagingItems.length === 0) {
+                    const errorDest = errorOutputPath(outDir, filename);
+                    writeText(errorDest, "Hamster produced no output. Exit code: " + exitCode + ". See last_run.log for agent output.\n");
+                    if (!fm.fileExistsAtPath(errorDest)) deliverySucceeded = false;
+                }
+
+                if (deliverySucceeded && listDir(stagingDir).length === 0) {
+                    if (fm.fileExistsAtPath(claimPath)) {
+                        if (hadError) restoreClaim(claimPath, origPath);
+                        else removePath(claimPath);
+                    }
+                    setCenterText(statusLabel, hadError ? "Error output: " + filename : "Done: " + filename, hadError ? $.NSColor.systemRedColor : $.NSColor.systemGreenColor);
+                } else {
+                    setCenterText(statusLabel, "Error delivering: " + filename, $.NSColor.systemRedColor);
+                }
+
+                setWorkerStateIndicator(false);
+                appendLog("\n=== Run finished " + new Date().toISOString() + " (exit " + exitCode + ") ===\n");
                 currentTask = null;
                 activeClaimItem = null;
+                processingStartedAt = null;
+                progressDetailLabel.setStringValue("");
+            } else if (activeClaimItem && processingStartedAt !== null) {
+                setWorkerStateIndicator(true);
+                const elapsed = (Date.now() - processingStartedAt) / 1000;
+                const frame = progressFrames[progressFrame % progressFrames.length];
+                progressFrame++;
+                setCenterText(statusLabel, frame + " Processing", $.NSColor.systemOrangeColor);
+                const logAttrs = getAttrs(logFile);
+                const logSize = logAttrs ? (logAttrs.objectForKey($.NSFileSize).js || 0) : 0;
+                setLeftText(progressDetailLabel, activeClaimItem.filename + " · " + formatDuration(elapsed) + " · log " + formatBytes(Number(logSize)), $.NSColor.secondaryLabelColor);
             }
             return;
         }
@@ -679,12 +745,18 @@ function run(argv) {
         const isRunning = getWorkerState();
         if (!isRunning) {
             btnStartStop.setTitle("▶ Start Hamster");
-            setCenterText(statusLabel, "Stopped", $.NSColor.secondaryLabelColor);
+            setWorkerStateIndicator(false);
+            setCenterText(statusLabel, "", $.NSColor.secondaryLabelColor);
+            progressDetailLabel.setStringValue("");
             return;
         }
         btnStartStop.setTitle("⏹ Stop Hamster");
-        if (statusLabel.stringValue.js === "Stopped" || !statusLabel.stringValue.js) {
-            setCenterText(statusLabel, "Idle (Watching)", $.NSColor.systemGreenColor);
+        if (!currentTask) {
+            setWorkerStateIndicator(false);
+            if (statusLabel.stringValue.js === "Stopped" || statusLabel.stringValue.js === "Idle (Watching)") {
+                setCenterText(statusLabel, "", $.NSColor.secondaryLabelColor);
+            }
+            progressDetailLabel.setStringValue("");
         }
 
         const inDir = config.inputFolder;
@@ -698,7 +770,7 @@ function run(argv) {
         let selectedItem = null;
 
         for (let name of items) {
-            if (name.startsWith(".") || name.endsWith(".hamster_claim") || name.endsWith(".tmp")) {
+            if (name.startsWith(".") || name.endsWith(".hamster_claim") || name.endsWith(".tmp") || isErrorFile(name)) {
                 continue;
             }
             const fullPath = inDir + "/" + name;
@@ -746,7 +818,11 @@ function run(argv) {
             claimPath: claimPath
         };
 
-        setCenterText(statusLabel, "Processing: " + filename, $.NSColor.systemOrangeColor);
+        setWorkerStateIndicator(true);
+        setCenterText(statusLabel, "| Processing", $.NSColor.systemOrangeColor);
+        progressDetailLabel.setStringValue(filename + " · starting…");
+        processingStartedAt = Date.now();
+        progressFrame = 1;
 
         let prompt = "Instructions:\n" + config.instructions + "\n\n";
         prompt += "Input item path: " + claimPath + "\n";
@@ -770,11 +846,11 @@ function run(argv) {
         });
 
         if (config.agent === "codex" && codexPath) {
-            agentCmd = shellQuote(codexPath) + " exec " + shellQuote(prompt) + " --cd " + shellQuote(stagingDir) + addDirArgs + " > " + shellQuote(logFile) + " 2>&1";
+            agentCmd = shellQuote(codexPath) + " exec " + shellQuote(prompt) + " --cd " + shellQuote(stagingDir) + addDirArgs + " >> " + shellQuote(logFile) + " 2>&1";
         } else if (config.agent === "claude" && claudePath) {
-            agentCmd = "cd " + shellQuote(stagingDir) + " && " + shellQuote(claudePath) + " -p --dangerously-skip-permissions " + shellQuote(prompt) + " > " + shellQuote(logFile) + " 2>&1";
+            agentCmd = "cd " + shellQuote(stagingDir) + " && " + shellQuote(claudePath) + " -p --dangerously-skip-permissions " + shellQuote(prompt) + " >> " + shellQuote(logFile) + " 2>&1";
         } else if (config.agent === "gemini" && agyPath) {
-            agentCmd = shellQuote(agyPath) + " --print --dangerously-skip-permissions " + shellQuote(prompt) + addDirArgs + " > " + shellQuote(logFile) + " 2>&1";
+            agentCmd = shellQuote(agyPath) + " --dangerously-skip-permissions --print=" + shellQuote(prompt) + addDirArgs + " >> " + shellQuote(logFile) + " 2>&1";
         } else {
             restoreClaim(claimPath, selectedItem.path);
             activeClaimItem = null;
@@ -782,6 +858,7 @@ function run(argv) {
             return;
         }
 
+        writeText(logFile, "=== Run started " + new Date().toISOString() + " ===\nInput: " + claimPath + "\nOutput staging: " + stagingDir + "\nBackend: " + config.agent + "\n\n");
         task.setArguments($([ "-c", agentCmd ]));
         task.launch;
         currentTask = task;
@@ -965,11 +1042,13 @@ function run(argv) {
 
                         setWorkerState(true);
                         btnStartStop.setTitle("⏹ Stop Hamster");
-                        setCenterText(statusLabel, "Idle (Watching)", $.NSColor.systemGreenColor);
+                        setWorkerStateIndicator(false);
+                        setCenterText(statusLabel, "", $.NSColor.secondaryLabelColor);
                     } else {
                         setWorkerState(false);
                         btnStartStop.setTitle("▶ Start Hamster");
-                        setCenterText(statusLabel, "Stopped", $.NSColor.secondaryLabelColor);
+                        setWorkerStateIndicator(false);
+                        setCenterText(statusLabel, "", $.NSColor.secondaryLabelColor);
                     }
                 }
             },
@@ -981,6 +1060,16 @@ function run(argv) {
                     config.inputFolder = fromDisplayPath(ObjC.unwrap(inputField.stringValue), config.homeFolder);
                     config.outputFolder = fromDisplayPath(ObjC.unwrap(outputField.stringValue), config.homeFolder);
                     config.instructions = ObjC.unwrap(instrTextView.string);
+                    config.tools = ObjC.unwrap(toolsField.stringValue).split(";").map(function(path) {
+                        return path.trim();
+                    }).filter(function(path) {
+                        return path.length > 0;
+                    });
+                    config.skills = ObjC.unwrap(skillsField.stringValue).split(";").map(function(path) {
+                        return path.trim();
+                    }).filter(function(path) {
+                        return path.length > 0;
+                    });
                     const selAgent = agentPopup.indexOfSelectedItem;
                     config.agent = (selAgent === 2 ? "codex" : (selAgent === 1 ? "claude" : "gemini"));
                     saveConfig();

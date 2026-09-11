@@ -677,9 +677,15 @@ function run(argv) {
     const btnChooseOutput = createButton("Choose…", 420, sTop - 133, 78, 26, settingsView);
     const btnOpenOutput = createButton("📂 Open", 502, sTop - 133, 83, 26, settingsView);
 
+    // Instructions Folder
+    createLabel("Instructions Folder:", 15, sTop - 164, 120, 20, true, 12, settingsView, false);
+    const instructionsField = createTextField(toDisplayPath(config.instructionsFolder, config.homeFolder), 140, sTop - 164, 275, 22, settingsView);
+    const btnChooseInstructions = createButton("Choose…", 420, sTop - 166, 78, 26, settingsView);
+    const btnOpenInstructions = createButton("📂 Open", 502, sTop - 166, 83, 26, settingsView);
+
     // AI Backend
-    createLabel("AI Backend:", 15, sTop - 164, 120, 20, true, 12, settingsView, false);
-    const agentPopup = $.NSPopUpButton.alloc.initWithFramePullsDown($.NSMakeRect(140, sTop - 167, 180, 26), false);
+    createLabel("AI Backend:", 15, sTop - 194, 120, 20, true, 12, settingsView, false);
+    const agentPopup = $.NSPopUpButton.alloc.initWithFramePullsDown($.NSMakeRect(140, sTop - 197, 180, 26), false);
     agentPopup.addItemWithTitle("Gemini (" + (agyPath ? "Installed" : "Not Found") + ")");
     agentPopup.addItemWithTitle("Claude (" + (claudePath ? "Installed" : "Not Found") + ")");
     agentPopup.addItemWithTitle("Codex (" + (codexPath ? "Installed" : "Not Found") + ")");
@@ -698,22 +704,16 @@ function run(argv) {
         return agyPath || "Gemini/Agy CLI not found";
     }
 
-    createLabel(getSelectedBackendPath(), 330, sTop - 164, 255, 20, false, 10, settingsView, false);
-
-    // Instructions Folder
-    createLabel("Instructions Folder:", 15, sTop - 194, 120, 20, true, 12, settingsView, false);
-    const instructionsField = createTextField(toDisplayPath(config.instructionsFolder, config.homeFolder), 140, sTop - 194, 275, 22, settingsView);
-    const btnChooseInstructions = createButton("Choose…", 420, sTop - 196, 78, 26, settingsView);
-    const btnOpenInstructions = createButton("📂 Open", 502, sTop - 196, 83, 26, settingsView);
+    createLabel(getSelectedBackendPath(), 330, sTop - 194, 255, 20, false, 10, settingsView, false);
 
     // Tools List
-    createLabel("Tools Folders:", 15, sTop - 308, 120, 20, true, 12, settingsView, false);
+    createLabel("Tools Folders:", 15, sTop - 227, 120, 20, true, 12, settingsView, false);
     const toolsField = createTextField(config.tools.join("; "), 140, sTop - 227, 275, 22, settingsView);
     const btnAddTool = createButton("Add…", 420, sTop - 229, 78, 26, settingsView);
     const btnClearTools = createButton("Clear", 502, sTop - 229, 83, 26, settingsView);
 
     // Skills List
-    createLabel("Skills Folders:", 15, sTop - 340, 120, 20, true, 12, settingsView, false);
+    createLabel("Skills Folders:", 15, sTop - 259, 120, 20, true, 12, settingsView, false);
     const skillsField = createTextField(config.skills.join("; "), 140, sTop - 259, 275, 22, settingsView);
     const btnAddSkill = createButton("Add…", 420, sTop - 261, 78, 26, settingsView);
     const btnClearSkills = createButton("Clear", 502, sTop - 261, 83, 26, settingsView);

@@ -23,7 +23,7 @@ The source file is the file you run. Inspect it yourself or ask your coding agen
 ## Get started
 
 1. Double-click [`main.colony/hamster-founder/hamster.command`](main.colony/hamster-founder/hamster.command).
-2. In **Settings**, choose your AI backend and instructions folder.
+2. In **Settings**, choose your AI backend.
 3. Click **Start Hamster** and drop files into `input/`.
 4. Collect the results from `output/`.
 

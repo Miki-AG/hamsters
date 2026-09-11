@@ -31,7 +31,7 @@ Hamster processes one file at a time and removes successfully processed inputs. 
 
 Failed runs produce files with a timestamped `.error` suffix. Workers ignore these files, so errors do not pass down a chain.
 
-Add prompts to `instructions/`, skills to `skills/`, and executable tools to `tools/`. Hamster loads the prompts and makes the skills and tools available to the agent.
+Add `.md` prompt files to `instructions/`, `.md` skill files to `skills/`, and executable `.sh` tool files to `tools/`. Hamster loads the prompts and makes the skills and tools available to the agent.
 
 ## Colonies and breeding
 

@@ -5,7 +5,7 @@
 # Hard Constraints:
 # - Entire app contained in this single .command file.
 # - No external packages or compilers; uses macOS native zsh/bash, JXA & AppKit.
-# - Persistent independent state per Hamster under ~/Library/Application Support/Hamsters/<HAMSTER_ID>/
+# - Each Hamster keeps its script, prompt, folders, tools, skills, and runtime state together.
 # - Simplified, elegant 2-Tab Layout without heavy nested frames.
 # - Tab 1: 🐹 Hamster Wheel (3 clean columns with all texts perfectly centered)
 # - Tab 2: ⚙️ Settings (Clean configuration layout)
@@ -20,8 +20,9 @@ export PATH="/usr/local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bi
 # Persistent Unique Hamster Identity placeholder (auto-populated on first run or clone)
 HAMSTER_ID="hamster-f6b5941e"
 
-# Canonical path to this script
+# Canonical path to this script and its containing Hamster folder
 SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+WORKER_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 
 # Base storage directory
 BASE_STORAGE="$HOME/Library/Application Support/Hamsters"
@@ -35,25 +36,36 @@ if [ "$HAMSTER_ID" = "HAMSTER_ID_PLACEHOLDER" ] || [ -z "$HAMSTER_ID" ]; then
     HAMSTER_ID="$NEW_ID"
 fi
 
-HAMSTER_DIR="$BASE_STORAGE/$HAMSTER_ID"
-LOC_FILE="$HAMSTER_DIR/location.txt"
-PID_FILE="$HAMSTER_DIR/app.pid"
+RUNTIME_DIR="$WORKER_DIR/.hamster"
+LEGACY_DIR="$BASE_STORAGE/$HAMSTER_ID"
+LOC_FILE="$RUNTIME_DIR/location.txt"
+PID_FILE="$RUNTIME_DIR/app.pid"
 
 # A missing previous location means the script moved; an existing one means it was copied.
+REGISTERED_PATH=""
 if [ -f "$LOC_FILE" ]; then
     REGISTERED_PATH=$(cat "$LOC_FILE" 2>/dev/null)
+elif [ -f "$LEGACY_DIR/location.txt" ]; then
+    REGISTERED_PATH=$(cat "$LEGACY_DIR/location.txt" 2>/dev/null)
+fi
+if [ -n "$REGISTERED_PATH" ]; then
     if [ "$REGISTERED_PATH" != "$SCRIPT_PATH" ] && [ -f "$REGISTERED_PATH" ]; then
         # Spawn a new independent ID for this clone
         CLONE_ID="hamster-$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)"
+        rm -rf "$RUNTIME_DIR"
         sed -i '' "s/^HAMSTER_ID=.*/HAMSTER_ID=\"$CLONE_ID\"/" "$SCRIPT_PATH" || exit 1
         HAMSTER_ID="$CLONE_ID"
-        HAMSTER_DIR="$BASE_STORAGE/$HAMSTER_ID"
-        LOC_FILE="$HAMSTER_DIR/location.txt"
-        PID_FILE="$HAMSTER_DIR/app.pid"
+        RUNTIME_DIR="$WORKER_DIR/.hamster"
+        LEGACY_DIR="$BASE_STORAGE/$HAMSTER_ID"
+        LOC_FILE="$RUNTIME_DIR/location.txt"
+        PID_FILE="$RUNTIME_DIR/app.pid"
     fi
 fi
 
-mkdir -p "$HAMSTER_DIR/work/claim" "$HAMSTER_DIR/work/output_staging" || exit 1
+if [ ! -d "$RUNTIME_DIR" ] && [ -d "$LEGACY_DIR" ] && [ ! -f "$REGISTERED_PATH" ]; then
+    mv "$LEGACY_DIR" "$RUNTIME_DIR" || exit 1
+fi
+mkdir -p "$RUNTIME_DIR/work/claim" "$RUNTIME_DIR/work/output_staging" || exit 1
 printf '%s\n' "$SCRIPT_PATH" > "$LOC_FILE" || exit 1
 
 if [ "$1" = "--register" ]; then
@@ -81,11 +93,11 @@ if [ -f "$PID_FILE" ]; then
     EXISTING_PID=$(cat "$PID_FILE" 2>/dev/null)
     if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null; then
         if [[ "$*" == *"--headless"* ]] || [[ "$*" == *"--start"* ]]; then
-            echo "RUNNING" > "$HAMSTER_DIR/state.txt"
+            echo "RUNNING" > "$RUNTIME_DIR/state.txt"
             exit 0
         fi
         if [[ "$*" == *"--stop"* ]]; then
-            echo "STOPPED" > "$HAMSTER_DIR/state.txt"
+            echo "STOPPED" > "$RUNTIME_DIR/state.txt"
             exit 0
         fi
         # Bring existing instance to the front and reopen window
@@ -105,17 +117,23 @@ fi
 # ------------------------------------------------------------------------------
 # 3. Clean Launch Hand-Off (Direct process replacement with JXA)
 # ------------------------------------------------------------------------------
-exec /usr/bin/osascript -l JavaScript - "$HAMSTER_ID" "$HAMSTER_DIR" "$SCRIPT_PATH" "$@" << 'EOF'
+exec /usr/bin/osascript -l JavaScript - "$HAMSTER_ID" "$RUNTIME_DIR" "$SCRIPT_PATH" "$REGISTERED_PATH" "$@" << 'EOF'
 function run(argv) {
     ObjC.import("Cocoa");
 
     const hamsterId = argv[0];
     const hamsterDir = argv[1];
     const scriptPath = argv[2];
+    const previousScriptPath = (argv[3] && argv[3].startsWith("/")) ? argv[3] : scriptPath;
+    const workerDir = scriptPath.substring(0, scriptPath.lastIndexOf("/"));
     const configFile = hamsterDir + "/config.json";
     const logFile = hamsterDir + "/last_run.log";
     const pidFile = hamsterDir + "/app.pid";
     const stateFile = hamsterDir + "/state.txt";
+    const promptFile = workerDir + "/prompt.md";
+    const toolsDir = workerDir + "/tools";
+    const skillsDir = workerDir + "/skills";
+    const defaultPrompt = "Read the input file, process it according to the requested transformation, and write the resulting output file to the specified output folder.";
 
     const fm = $.NSFileManager.defaultManager;
     const userHome = "/Users/" + $.NSUserName().js;
@@ -156,6 +174,15 @@ function run(argv) {
             return arr;
         }
         return [];
+    }
+
+    function readText(path) {
+        if (!path || !fm.fileExistsAtPath(path)) return "";
+        try {
+            return ObjC.unwrap($.NSString.stringWithContentsOfFileEncodingError(path, $.NSUTF8StringEncoding, $()));
+        } catch (e) {
+            return "";
+        }
     }
 
     function removePath(path) {
@@ -241,10 +268,10 @@ function run(argv) {
         const cleanFull = fullPath.replace(/\/+$/, "");
         const cleanHome = (homePath || "").replace(/\/+$/, "");
         if (cleanHome && cleanFull.startsWith(cleanHome + "/")) {
-            return cleanFull.substring(cleanHome.length + 1);
+            return "./" + cleanFull.substring(cleanHome.length + 1);
         }
         if (cleanHome && cleanFull === cleanHome) {
-            return ".";
+            return "./";
         }
         return fullPath;
     }
@@ -259,7 +286,7 @@ function run(argv) {
             return trimmed.replace(/^~/, userHome);
         }
         const cleanHome = (homePath || (userHome + "/Hamsters/Hamster_" + hamsterId)).replace(/\/+$/, "");
-        if (trimmed === "." || trimmed === "") {
+        if (trimmed === "." || trimmed === "./" || trimmed === "") {
             return cleanHome;
         }
         return cleanHome + "/" + trimmed;
@@ -272,10 +299,9 @@ function run(argv) {
 
     // Initial default naming & directories
     const defaultName = "Hamster " + hamsterId.replace("hamster-", "");
-    const safeDefaultName = defaultName.replace(/\s+/g, "_");
-    const defaultHome = userHome + "/Hamsters/" + safeDefaultName;
-    const defaultInbox = defaultHome + "/inbox";
-    const defaultOutbox = defaultHome + "/outbox";
+    const defaultHome = workerDir;
+    const defaultInbox = workerDir + "/input";
+    const defaultOutbox = workerDir + "/output";
 
     let config = {
         name: defaultName,
@@ -283,9 +309,9 @@ function run(argv) {
         inputFolder: defaultInbox,
         outputFolder: defaultOutbox,
         agent: "gemini",
-        instructions: "Read the input file. Process it according to the requested transformation, and write the resulting output file to the specified output folder.",
-        tools: [],
-        skills: []
+        instructions: defaultPrompt,
+        tools: [toolsDir],
+        skills: [skillsDir]
     };
 
     if (fm.fileExistsAtPath(configFile)) {
@@ -296,11 +322,45 @@ function run(argv) {
         } catch (e) {}
     }
 
+    function remapMovedPath(value, oldRoot, newRoot) {
+        if (!value || !oldRoot || oldRoot === newRoot) return value;
+        if (value === oldRoot) return newRoot;
+        if (value.startsWith(oldRoot + "/")) return newRoot + value.substring(oldRoot.length);
+        return value;
+    }
+
+    const previousWorkerDir = previousScriptPath.substring(0, previousScriptPath.lastIndexOf("/"));
+    if (previousWorkerDir && previousWorkerDir !== workerDir) {
+        config.homeFolder = remapMovedPath(config.homeFolder, previousWorkerDir, workerDir);
+        config.inputFolder = remapMovedPath(config.inputFolder, previousWorkerDir, workerDir);
+        config.outputFolder = remapMovedPath(config.outputFolder, previousWorkerDir, workerDir);
+        config.tools = (config.tools || []).map(path => remapMovedPath(path, previousWorkerDir, workerDir));
+        config.skills = (config.skills || []).map(path => remapMovedPath(path, previousWorkerDir, workerDir));
+    }
+
     const defaultDisplayName = "Hamster " + hamsterId.replace("hamster-", "");
     if (!config.displayName) config.displayName = config.name || defaultDisplayName;
     if (!config.homeFolder) config.homeFolder = defaultHome;
     if (!config.inputFolder) config.inputFolder = defaultInbox;
     if (!config.outputFolder) config.outputFolder = defaultOutbox;
+    config.homeFolder = fromDisplayPath(config.homeFolder, workerDir);
+    config.inputFolder = fromDisplayPath(config.inputFolder, config.homeFolder);
+    config.outputFolder = fromDisplayPath(config.outputFolder, config.homeFolder);
+    if (!config.instructions) config.instructions = defaultPrompt;
+    if (!Array.isArray(config.tools)) config.tools = [toolsDir];
+    if (!Array.isArray(config.skills)) config.skills = [skillsDir];
+    config.tools = config.tools.map(path => fromDisplayPath(path, workerDir));
+    config.skills = config.skills.map(path => fromDisplayPath(path, workerDir));
+
+    makeDir(workerDir);
+    makeDir(toolsDir);
+    makeDir(skillsDir);
+    if (fm.fileExistsAtPath(promptFile)) {
+        const promptText = readText(promptFile).trim();
+        if (promptText) config.instructions = promptText;
+    } else {
+        writeText(promptFile, config.instructions + "\n");
+    }
 
     makeDir(config.homeFolder);
     makeDir(config.inputFolder);
@@ -320,7 +380,10 @@ function run(argv) {
         const jsonStr = JSON.stringify(config, null, 2);
         const nsStr = $.NSString.stringWithString(jsonStr);
         nsStr.writeToFileAtomicallyEncodingError(configFile, true, $.NSUTF8StringEncoding, $());
+        writeText(promptFile, config.instructions + "\n");
     }
+
+    saveConfig();
 
     // CLI Detection
     function detectCLI(name) {
@@ -1081,9 +1144,15 @@ function run(argv) {
             "onCreateHamster:": {
                 types: ["void", ["id"]],
                 implementation: function(sender) {
-                    const currentDir = scriptPath.substring(0, scriptPath.lastIndexOf("/"));
-                    const newId = "hamster-" + (Math.random().toString(36).substring(2, 10));
-                    const destPath = currentDir + "/" + newId + ".command";
+                    const currentDir = workerDir.substring(0, workerDir.lastIndexOf("/"));
+                    let newId;
+                    do {
+                        newId = "hamster-" + $.NSUUID.UUID.UUIDString.js.toLowerCase().substring(0, 8);
+                    } while (fm.fileExistsAtPath(currentDir + "/" + newId));
+                    const newHamsterDir = currentDir + "/" + newId;
+                    const destPath = newHamsterDir + "/hamster.command";
+
+                    makeDir(newHamsterDir);
 
                     const ownCode = $.NSString.stringWithContentsOfFileEncodingError(scriptPath, $.NSUTF8StringEncoding, $());
                     let codeStr = ObjC.unwrap(ownCode);
@@ -1092,21 +1161,26 @@ function run(argv) {
                     const nsCode = $.NSString.stringWithString(codeStr);
                     nsCode.writeToFileAtomicallyEncodingError(destPath, true, $.NSUTF8StringEncoding, $());
 
+                    for (let asset of ["prompt.md", "skills", "tools"]) {
+                        const sourceAsset = workerDir + "/" + asset;
+                        if (fm.fileExistsAtPath(sourceAsset)) {
+                            fm.copyItemAtPathToPathError(sourceAsset, newHamsterDir + "/" + asset, $());
+                        }
+                    }
+
                     const task = $.NSTask.alloc.init;
                     task.setLaunchPath("/bin/chmod");
                     task.setArguments($([ "+x", destPath ]));
                     task.launch;
                     task.waitUntilExit;
 
-                    const newHamsterDir = hamsterDir.replace(hamsterId, newId);
                     makeDir(newHamsterDir + "/work/claim");
                     makeDir(newHamsterDir + "/work/output_staging");
 
                     const newName = "Hamster " + newId.replace("hamster-", "");
-                    const newSafeName = newName.replace(/\s+/g, "_");
-                    const newHome = userHome + "/Hamsters/" + newSafeName;
-                    const newInbox = newHome + "/inbox";
-                    const newOutbox = newHome + "/outbox";
+                    const newHome = newHamsterDir;
+                    const newInbox = newHamsterDir + "/input";
+                    const newOutbox = newHamsterDir + "/output";
 
                     makeDir(newHome);
                     makeDir(newInbox);
@@ -1116,17 +1190,16 @@ function run(argv) {
                         name: newName,
                         homeFolder: newHome,
                         inputFolder: newInbox,
-                        outputFolder: newOutbox
+                        outputFolder: newOutbox,
+                        tools: [newHamsterDir + "/tools"],
+                        skills: [newHamsterDir + "/skills"]
                     });
 
                     const newConfigStr = $.NSString.stringWithString(JSON.stringify(newConfig, null, 2));
                     newConfigStr.writeToFileAtomicallyEncodingError(
-                        newHamsterDir + "/config.json", true, $.NSUTF8StringEncoding, $()
+                        newHamsterDir + "/.hamster/config.json", true, $.NSUTF8StringEncoding, $()
                     );
-                    const newLocStr = $.NSString.stringWithString(destPath);
-                    newLocStr.writeToFileAtomicallyEncodingError(
-                        newHamsterDir + "/location.txt", true, $.NSUTF8StringEncoding, $()
-                    );
+                    writeText(newHamsterDir + "/prompt.md", config.instructions + "\n");
 
                     $.NSWorkspace.sharedWorkspace.openFile(destPath);
                 }

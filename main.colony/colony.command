@@ -92,15 +92,39 @@ function run(argv) {
         return "'" + String(value).replace(/'/g, "'\\''") + "'";
     }
 
+    function resolvePath(value, base) {
+        if (!value) return "";
+        const trimmed = String(value).trim();
+        if (trimmed.startsWith("/")) return trimmed;
+        if (trimmed.startsWith("~")) return userHome + trimmed.substring(1);
+        if (trimmed === "." || trimmed === "./") return base;
+        return base.replace(/\/+$/, "") + "/" + trimmed.replace(/^\.\//, "");
+    }
+
     function isProcessRunning(pid) {
         if (!pid) return false;
         return ($.kill(parseInt(pid, 10), 0) === 0);
     }
 
+    function workerScriptPaths() {
+        const paths = [];
+        for (let name of listDir(colonyDir)) {
+            const directPath = colonyDir + "/" + name;
+            if (name === "hamster.command" || /^hamster-.+\.command$/.test(name)) {
+                if (fm.isExecutableFileAtPath(directPath)) paths.push(directPath);
+                continue;
+            }
+            if (!fm.fileExistsAtPath(directPath) || !fm.fileExistsAtPath(directPath + "/hamster.command")) continue;
+            paths.push(directPath + "/hamster.command");
+        }
+        return paths.sort();
+    }
+
     function workerTemplatePath() {
-        const names = listDir(colonyDir).filter(name => name === "hamster.command" || /^hamster-.+\.command$/.test(name)).sort();
-        if (names.includes("hamster.command")) return colonyDir + "/hamster.command";
-        return names.length > 0 ? colonyDir + "/" + names[0] : null;
+        const paths = workerScriptPaths();
+        if (paths.length === 0) return null;
+        const founder = paths.find(path => path.includes("/hamster-founder/"));
+        return founder || paths[0];
     }
 
     // App & Window Setup
@@ -208,7 +232,8 @@ function run(argv) {
         } while (fm.fileExistsAtPath(baseStorage + "/" + workerId));
 
         const stagingDir = newColonyDir + ".tmp";
-        const workerPath = stagingDir + "/" + workerId + ".command";
+        const workerDir = stagingDir + "/" + workerId;
+        const workerPath = workerDir + "/hamster.command";
         if (!fm.createDirectoryAtPathWithIntermediateDirectoriesAttributesError(stagingDir, false, $(), $())) {
             throw new Error("Could not create a colony beside this folder.");
         }
@@ -216,9 +241,23 @@ function run(argv) {
             if (!fm.copyItemAtPathToPathError(scriptPath, stagingDir + "/colony.command", $())) {
                 throw new Error("Could not copy colony.command.");
             }
+            if (!fm.createDirectoryAtPathWithIntermediateDirectoriesAttributesError(workerDir, true, $(), $())) {
+                throw new Error("Could not create the new Hamster folder.");
+            }
             const code = template.replace(/^HAMSTER_ID="[^"]*"/m, 'HAMSTER_ID="' + workerId + '"');
             if (!$.NSString.stringWithString(code).writeToFileAtomicallyEncodingError(workerPath, true, $.NSUTF8StringEncoding, $())) {
                 throw new Error("Could not create the colony's Hamster script.");
+            }
+            const sourceDir = templatePath.substring(0, templatePath.lastIndexOf("/"));
+            for (let asset of ["prompt.md", "skills", "tools"]) {
+                const sourceAsset = sourceDir + "/" + asset;
+                if (fm.fileExistsAtPath(sourceAsset) && !fm.copyItemAtPathToPathError(sourceAsset, workerDir + "/" + asset, $())) {
+                    throw new Error("Could not copy Hamster " + asset + ".");
+                }
+            }
+            if (!fm.createDirectoryAtPathWithIntermediateDirectoriesAttributesError(workerDir + "/input", true, $(), $()) ||
+                !fm.createDirectoryAtPathWithIntermediateDirectoriesAttributesError(workerDir + "/output", true, $(), $())) {
+                throw new Error("Could not create the Hamster input/output folders.");
             }
             const chmod = $.NSTask.alloc.init;
             chmod.setLaunchPath("/bin/chmod");
@@ -237,35 +276,36 @@ function run(argv) {
     }
 
     function registerColonyHamsters() {
-        for (let name of listDir(colonyDir)) {
-            if (name !== "hamster.command" && !/^hamster-.+\.command$/.test(name)) continue;
+        for (let workerPath of workerScriptPaths()) {
             const task = $.NSTask.alloc.init;
             task.setLaunchPath("/bin/bash");
-            task.setArguments($([colonyDir + "/" + name, "--register"]));
+            task.setArguments($([workerPath, "--register"]));
             task.launch;
             task.waitUntilExit;
             if (task.terminationStatus !== 0) {
-                throw new Error("Could not register " + name);
+                throw new Error("Could not register " + workerPath);
             }
         }
     }
 
     function scanHamsters() {
-        makeDir(baseStorage);
-        const dirs = listDir(baseStorage);
         const list = [];
 
-        for (let id of dirs) {
-            if (id.startsWith(".")) continue;
-            const hDir = baseStorage + "/" + id;
-            const cfgFile = hDir + "/config.json";
+        for (let scriptLoc of workerScriptPaths()) {
+            const workerDir = scriptLoc.substring(0, scriptLoc.lastIndexOf("/"));
+            const isNested = workerDir !== colonyDir;
+            const localRuntime = isNested ? workerDir + "/.hamster" : "";
+            const scriptText = readText(scriptLoc);
+            const idMatch = scriptText.match(/^HAMSTER_ID="([^"]+)"/m);
+            const id = idMatch ? idMatch[1] : "";
+            const legacyDir = id ? baseStorage + "/" + id : "";
+            const hDir = localRuntime || legacyDir;
+            const cfg = readJSON(hDir + "/config.json") || (legacyDir && legacyDir !== hDir ? readJSON(legacyDir + "/config.json") : null) || {};
             const pidFile = hDir + "/app.pid";
             const locFile = hDir + "/location.txt";
             const stateFile = hDir + "/state.txt";
-            const scriptLoc = readText(locFile);
-            if (scriptLoc.substring(0, scriptLoc.lastIndexOf("/")) !== colonyDir || !fm.fileExistsAtPath(scriptLoc)) continue;
-
-            const cfg = readJSON(cfgFile) || {};
+            const registeredPath = readText(locFile);
+            const registeredScript = registeredPath && fm.fileExistsAtPath(registeredPath) ? registeredPath : scriptLoc;
             const stateStr = readText(stateFile);
             const isWorkerRunning = (stateStr === "RUNNING");
 
@@ -280,9 +320,9 @@ function run(argv) {
                 } catch (e) {}
             }
 
-            const homeDir = cfg.homeFolder || (userHome + "/Hamsters/" + (cfg.name || ("Hamster " + id.replace("hamster-", ""))).replace(/\s+/g, "_"));
-            const inDir = cfg.inputFolder || (homeDir + "/inbox");
-            const outDir = cfg.outputFolder || (homeDir + "/outbox");
+            const homeDir = resolvePath(cfg.homeFolder || workerDir, workerDir);
+            const inDir = resolvePath(cfg.inputFolder || "./input", homeDir);
+            const outDir = resolvePath(cfg.outputFolder || "./output", homeDir);
 
             const inCount = listDir(inDir).filter(n => !n.startsWith(".") && !n.endsWith(".hamster_claim") && !n.endsWith(".tmp") && !isErrorFile(n)).length;
             const outItems = listDir(outDir).filter(n => !n.startsWith("."));
@@ -295,14 +335,15 @@ function run(argv) {
                 homeFolder: homeDir,
                 inputFolder: inDir,
                 outputFolder: outDir,
-                scriptPath: scriptLoc,
+                scriptPath: registeredScript,
                 isWorkerRunning: isWorkerRunning,
                 isProcessAlive: isProcessAlive,
                 pid: pid,
                 inCount: inCount,
                 outCount: outCount,
                 errorCount: errorCount,
-                dir: hDir,
+                dir: workerDir,
+                runtimeDir: hDir,
                 stateFile: stateFile
             });
         }
@@ -313,7 +354,7 @@ function run(argv) {
 
     function ensureHamsterRunning(h) {
         if (h.isProcessAlive) return;
-        const targetScript = (h.scriptPath && fm.fileExistsAtPath(h.scriptPath)) ? h.scriptPath : (scriptPath.substring(0, scriptPath.lastIndexOf("/")) + "/" + h.id + ".command");
+        const targetScript = (h.scriptPath && fm.fileExistsAtPath(h.scriptPath)) ? h.scriptPath : (scriptPath.substring(0, scriptPath.lastIndexOf("/")) + "/" + h.id + "/hamster.command");
         if (fm.fileExistsAtPath(targetScript)) {
             const task = $.NSTask.alloc.init;
             task.setLaunchPath("/bin/zsh");
@@ -452,11 +493,25 @@ function run(argv) {
                     const currentDir = scriptPath.substring(0, scriptPath.lastIndexOf("/"));
                     const templatePath = workerTemplatePath();
                     if (templatePath) {
-                        const newId = "hamster-" + Math.random().toString(36).substring(2, 10);
-                        const destPath = currentDir + "/" + newId + ".command";
+                        let newId;
+                        do {
+                            newId = "hamster-" + $.NSUUID.UUID.UUIDString.js.toLowerCase().substring(0, 8);
+                        } while (fm.fileExistsAtPath(currentDir + "/" + newId));
+                        const newHamsterDir = currentDir + "/" + newId;
+                        const destPath = newHamsterDir + "/hamster.command";
+                        makeDir(newHamsterDir);
                         const source = $.NSString.stringWithContentsOfFileEncodingError(templatePath, $.NSUTF8StringEncoding, $());
                         const code = ObjC.unwrap(source).replace(/HAMSTER_ID="[^"]*"/, 'HAMSTER_ID="' + newId + '"');
                         $.NSString.stringWithString(code).writeToFileAtomicallyEncodingError(destPath, true, $.NSUTF8StringEncoding, $());
+                        const sourceDir = templatePath.substring(0, templatePath.lastIndexOf("/"));
+                        for (let asset of ["prompt.md", "skills", "tools"]) {
+                            const sourceAsset = sourceDir + "/" + asset;
+                            if (fm.fileExistsAtPath(sourceAsset)) {
+                                fm.copyItemAtPathToPathError(sourceAsset, newHamsterDir + "/" + asset, $());
+                            }
+                        }
+                        makeDir(newHamsterDir + "/input");
+                        makeDir(newHamsterDir + "/output");
                         const chmod = $.NSTask.alloc.init;
                         chmod.setLaunchPath("/bin/chmod");
                         chmod.setArguments($([ "+x", destPath ]));
@@ -494,7 +549,7 @@ function run(argv) {
                             $.NSWorkspace.sharedWorkspace.openFile(h.scriptPath);
                         } else {
                             const currentDir = scriptPath.substring(0, scriptPath.lastIndexOf("/"));
-                            const fallback = currentDir + "/" + h.id + ".command";
+                            const fallback = currentDir + "/" + h.id + "/hamster.command";
                             if (fm.fileExistsAtPath(fallback)) {
                                 $.NSWorkspace.sharedWorkspace.openFile(fallback);
                             }

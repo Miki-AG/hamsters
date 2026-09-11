@@ -7,9 +7,23 @@ Icon
 .Spotlight-V100
 .Trashes
 
-# Cloned / Bred Hamster Executables (keep canonical hamster.command only)
+# Cloned / Bred Hamster Bundles (keep the founder bundle only)
 hamster-*.command
 Hamster-*.command
+/main.colony/*/
+!main.colony/hamster-founder/
+!main.colony/hamster-founder/**
+
+# Per-Hamster runtime state
+.hamster/
+
+# Working queue contents (keep only the founder placeholders)
+**/input/**
+**/output/**
+!main.colony/hamster-founder/input/
+!main.colony/hamster-founder/input/.gitkeep
+!main.colony/hamster-founder/output/
+!main.colony/hamster-founder/output/.gitkeep
 
 # Local colonies (keep the canonical colony)
 /*.colony/

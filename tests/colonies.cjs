@@ -5,7 +5,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const project = path.resolve(__dirname, '..');
-const workerSource = fs.readFileSync(path.join(project, 'main.colony/hamster.command'), 'utf8');
+const workerSource = fs.readFileSync(path.join(project, 'main.colony/hamster-founder/hamster.command'), 'utf8');
 const colonySource = fs.readFileSync(path.join(project, 'main.colony/colony.command'), 'utf8');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hamster-colonies-'));
 const storage = path.join(root, 'state');
@@ -51,7 +51,7 @@ function initialize(worker) {
         saveConfig();
         return config;
     }
-    JSON.stringify(initializeWorker(${JSON.stringify([worker.id, worker.dir, worker.scriptPath])}));`);
+    JSON.stringify(initializeWorker(${JSON.stringify([worker.id, worker.runtimeDir || path.join(worker.dir, '.hamster'), worker.scriptPath])}));`);
 }
 
 function fleet(folder, method) {
@@ -80,9 +80,16 @@ try {
     const testSource = workerSource
         .replace('BASE_STORAGE="$HOME/Library/Application Support/Hamsters"', 'BASE_STORAGE=' + JSON.stringify(storage))
         .replace('const userHome = "/Users/" + $.NSUserName().js;', 'const userHome = ' + JSON.stringify(userHome) + ';');
-    fs.writeFileSync(path.join(original, 'hamster.command'), testSource, { mode: 0o755 });
-    fs.writeFileSync(path.join(original, 'hamster-second.command'),
-        testSource.replace(/^HAMSTER_ID=.*$/m, 'HAMSTER_ID="hamster-test-second"'), { mode: 0o755 });
+    for (const [folder, source] of [
+        ['hamster-founder', testSource],
+        ['hamster-second', testSource.replace(/^HAMSTER_ID=.*$/m, 'HAMSTER_ID="hamster-test-second"')]
+    ]) {
+        const workerDir = path.join(original, folder);
+        fs.mkdirSync(path.join(workerDir, 'skills'), { recursive: true });
+        fs.mkdirSync(path.join(workerDir, 'tools'), { recursive: true });
+        fs.writeFileSync(path.join(workerDir, 'hamster.command'), source, { mode: 0o755 });
+        fs.writeFileSync(path.join(workerDir, 'prompt.md'), 'Test prompt\n');
+    }
     fs.copyFileSync(path.join(project, 'main.colony/colony.command'), path.join(original, 'colony.command'));
 
     const first = colony(original, 'register');
@@ -90,8 +97,18 @@ try {
     assert.equal(new Set(first.map(h => h.id)).size, 2);
     for (const h of first) {
         const config = initialize(h);
+        assert.equal(h.dir, path.dirname(h.scriptPath));
+        assert.equal(h.runtimeDir, path.join(h.dir, '.hamster'));
+        assert.equal(config.homeFolder, h.dir);
         assert.equal(config.inputFolder, h.inputFolder);
         assert.equal(config.outputFolder, h.outputFolder);
+        assert.equal(config.inputFolder, path.join(h.dir, 'input'));
+        assert.equal(config.outputFolder, path.join(h.dir, 'output'));
+        assert.deepEqual(config.tools, [path.join(h.dir, 'tools')]);
+        assert.deepEqual(config.skills, [path.join(h.dir, 'skills')]);
+        for (const asset of ['prompt.md', 'input', 'output', 'skills', 'tools', '.hamster']) {
+            assert(fs.existsSync(path.join(h.dir, asset)), asset);
+        }
     }
     console.log('PASS first Colony launch registers workers with matching default folders');
 
@@ -121,13 +138,18 @@ try {
         const files = fs.readdirSync(folder).sort();
         assert.equal(files.length, 2);
         assert.equal(files[0], 'colony.command');
-        assert.match(files[1], /^hamster-[a-f0-9]{8}\.command$/);
+        assert.match(files[1], /^hamster-[a-f0-9]{8}$/);
+        const workerScript = path.join(folder, files[1], 'hamster.command');
         assert.equal(fs.readFileSync(script, 'utf8'), colonySource);
         assert(fs.statSync(script).mode & 0o111);
-        assert(fs.statSync(path.join(folder, files[1])).mode & 0o111);
+        assert(fs.statSync(workerScript).mode & 0o111);
         const workers = colony(folder, 'register');
         assert.equal(workers.length, 1);
-        assert.equal(path.basename(workers[0].scriptPath), workers[0].id + '.command');
+        assert.equal(path.basename(workers[0].scriptPath), 'hamster.command');
+        assert.equal(path.basename(path.dirname(workers[0].scriptPath)), workers[0].id);
+        for (const asset of ['prompt.md', 'input', 'output', 'skills', 'tools']) {
+            assert(fs.existsSync(path.join(folder, files[1], asset)), asset);
+        }
         assert(!newWorkerIds.has(workers[0].id));
         newWorkerIds.add(workers[0].id);
         assert.equal(workers[0].isWorkerRunning, false);
@@ -208,7 +230,7 @@ try {
     `);
     const descendantWorkers = colony(path.dirname(descendantScript), 'register');
     assert.equal(descendantWorkers.length, 1);
-    assert.equal(path.basename(descendantWorkers[0].scriptPath), descendantWorkers[0].id + '.command');
+    assert.equal(path.basename(descendantWorkers[0].scriptPath), 'hamster.command');
     assert(!newWorkerIds.has(descendantWorkers[0].id));
     console.log('PASS colony with an ID-named worker can breed another colony');
 
@@ -227,7 +249,10 @@ try {
     `);
     assert.equal(additionalWorkers.length, 2);
     assert.equal(new Set(additionalWorkers.map(h => h.id)).size, 2);
-    for (const h of additionalWorkers) assert.equal(path.basename(h.scriptPath), h.id + '.command');
+    for (const h of additionalWorkers) {
+        assert.equal(path.basename(h.scriptPath), 'hamster.command');
+        assert.equal(path.basename(path.dirname(h.scriptPath)), h.id);
+    }
     assert(!fs.existsSync(path.join(idNamedColony, 'hamster.command')));
     console.log('PASS colony with ID-named workers can breed another worker');
 
@@ -249,8 +274,10 @@ try {
     console.log('PASS moving a colony preserves IDs and configured working folders');
 
     const moving = afterMove[0];
-    const target = path.join(original, 'hamster-moved.command');
-    fs.renameSync(moving.scriptPath, target);
+    const movingDir = path.dirname(moving.scriptPath);
+    const targetDir = path.join(original, 'moved-' + moving.id);
+    const target = path.join(targetDir, 'hamster.command');
+    fs.renameSync(movingDir, targetDir);
     const imported = colony(original, 'register');
     assert(imported.some(h => h.id === moving.id && h.scriptPath === target));
     assert.equal(colony(moved).length, 2);
@@ -259,7 +286,8 @@ try {
     const unopened = path.join(root, 'unopened');
     const unopenedCopy = path.join(root, 'unopened copy');
     fs.mkdirSync(unopened);
-    fs.writeFileSync(path.join(unopened, 'hamster.command'),
+    fs.mkdirSync(path.join(unopened, 'hamster-founder'));
+    fs.writeFileSync(path.join(unopened, 'hamster-founder', 'hamster.command'),
         testSource.replace(/^HAMSTER_ID=.*$/m, 'HAMSTER_ID="HAMSTER_ID_PLACEHOLDER"'), { mode: 0o755 });
     fs.cpSync(unopened, unopenedCopy, { recursive: true });
     const unopenedWorkers = colony(unopened, 'register');

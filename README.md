@@ -1,12 +1,12 @@
 # 🐹 Hamster
 
-**A local AI worker for batch processing, with a GUI.**
+**A native macOS GUI for batch AI processing, distributed as a single .command file.**
 
 Give it a prompt. Drop a bunch of files into the inbox. Hamster runs your AI CLI and puts the results in the outbox.
 
 Connect one worker's outbox to another's inbox to chain tasks. Hamsters are composable.
 
-No installer, server, or third-party libraries. Distributed as a single file.
+No installer or server, or third-party libraries. Distributed as a single file.
 
 Requires macOS 12+ and an installed, authenticated Gemini (`agy` or `gemini`), Claude (`claude`), or Codex (`codex`) CLI. Hamster uses your existing CLI authentication and adds no extra dependencies.
 

@@ -10,6 +10,8 @@ No installer or server, or third-party libraries. Distributed as a single file.
 
 Requires macOS 12+ and an installed, authenticated Gemini (`agy` or `gemini`), Claude (`claude`), or Codex (`codex`) CLI. Hamster uses your existing CLI authentication and adds no extra dependencies.
 
+The app runs locally on your Mac; the AI CLI you select determines where inference runs. Claude and Gemini are launched with permission prompts bypassed.
+
 | A single worker                                                                                    | A colony                                                                   |
 | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | ![Hamster's native window with inbox, worker controls, and outbox](docs/images/hamster-worker.png) | ![Colony managing two workers in a colony](docs/images/hamster-colony.png) |
@@ -23,7 +25,9 @@ git clone https://github.com/Miki-AG/hamsters.git
 cd hamsters
 ```
 
-The repo comes with a working travel-agent example (`main.colony/hamster-founder`). Its `instructions/prompt.md` defines the job, `skills/` contains procedures for destination research, activity matching, and email composition, and `tools/render/` contains the template renderer. It also comes with in input file sample.
+The repo comes with a working travel-agent example (`main.colony/hamster-founder`). Its `instructions/prompt.md` defines the job, `skills/` contains procedures for destination research, activity matching, and email composition, and `tools/render/` contains the template renderer. It also includes a sample input file.
+
+Only an instruction file and an input file are required for a first run. Skills and tools are optional extensions for reusable procedures and command-line helpers.
 
 1. Double-click [`main.colony/hamster-founder/hamster.command`](main.colony/hamster-founder/hamster.command) to open the hamster UI.
 2. Click **Start Hamster** (the play button). The hamster will process the file and write a custom email.
@@ -77,19 +81,7 @@ Set one worker's **Outbox** and the next worker's **Inbox** to the same folder. 
 
 Configure these examples with prompts and folder settings. Agents can use Git, web lookup, SSH, and local scripts through your AI CLI. Provide the tools, credentials, and file access each task needs.
 
-### 1. Meeting follow-up
-
-The summarizer turns a transcript into a file with decisions, action items, owners, and deadlines. The drafter uses that summary to write a follow-up email for review.
-
-```mermaid
-flowchart LR
-    Inbox["Inbox<br/>Meeting transcript"] --> Summarizer(["Summarizer"])
-    Summarizer --> Handoff["Outbox / Inbox<br/>Meeting summary"]
-    Handoff --> Drafter(["Email drafter"])
-    Drafter --> Outbox["Outbox<br/>Follow-up email draft"]
-```
-
-### 2. Release notes
+### 1. Release notes
 
 Provide a file naming the repository, commit range, and audience. The researcher uses Git to write a change report with commit references. The writer turns that report into release notes.
 
@@ -101,19 +93,7 @@ flowchart LR
     Writer --> Outbox["Outbox<br/>Release notes draft"]
 ```
 
-### 3. Outbound sales email drafts
-
-Provide a company, its website, and your offer. The researcher finds a relevant contact and writes a file with the offer, findings, sources, and missing information. The drafter uses it to write a personalized email for you to review and send.
-
-```mermaid
-flowchart LR
-    Inbox["Inbox<br/>Company and offer"] --> Researcher(["Company researcher"])
-    Researcher --> Handoff["Outbox / Inbox<br/>Contact and company research"]
-    Handoff --> Drafter(["Email drafter"])
-    Drafter --> Outbox["Outbox<br/>Sales email draft"]
-```
-
-### 4. Automated Obsidian indexing
+### 2. Automated Obsidian indexing
 
 Drop in copies of PDFs, notes, webpages, images, or recordings. The normalizer uses configured extraction tools to write Markdown with source details. The indexer reads that file, updates notes, tags, links, and the index in your Obsidian vault, then writes a receipt to its outbox.
 
@@ -126,6 +106,30 @@ flowchart LR
 ```
 
 Use one indexer per vault and instruct it to update existing notes when it encounters a source again.
+
+### 3. Meeting follow-up
+
+The summarizer turns a transcript into a file with decisions, action items, owners, and deadlines. The drafter uses that summary to write a follow-up email for review.
+
+```mermaid
+flowchart LR
+    Inbox["Inbox<br/>Meeting transcript"] --> Summarizer(["Summarizer"])
+    Summarizer --> Handoff["Outbox / Inbox<br/>Meeting summary"]
+    Handoff --> Drafter(["Email drafter"])
+    Drafter --> Outbox["Outbox<br/>Follow-up email draft"]
+```
+
+### 4. Outbound sales email drafts
+
+Provide a company, its website, and your offer. The researcher finds a relevant contact and writes a file with the offer, findings, sources, and missing information. The drafter uses it to write a personalized email for you to review and send.
+
+```mermaid
+flowchart LR
+    Inbox["Inbox<br/>Company and offer"] --> Researcher(["Company researcher"])
+    Researcher --> Handoff["Outbox / Inbox<br/>Contact and company research"]
+    Handoff --> Drafter(["Email drafter"])
+    Drafter --> Outbox["Outbox<br/>Sales email draft"]
+```
 
 ## Development
 

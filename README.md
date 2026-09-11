@@ -44,6 +44,8 @@ Failed runs produce files with a timestamped `.error` suffix. Workers ignore the
 
 Open [`main.colony/colony.command`](main.colony/colony.command) to manage the workers in that colony. Each Hamster can also run independently.
 
+If you experiment with hamsters, at some point you'll need more of them, or even separate new colonies for different projects.
+
 - **Breed Hamster** in a worker, or **Breed** in a colony, creates a new `hamster-<id>/` folder in the same colony.
 - **Breed Colony** creates a sibling `colony-<id>.colony/` folder containing one new worker.
 

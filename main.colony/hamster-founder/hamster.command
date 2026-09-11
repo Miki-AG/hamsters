@@ -18,7 +18,7 @@
 export PATH="/usr/local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:$HOME/.gemini/bin:$HOME/.codex/bin:$HOME/.claude/bin:$HOME/bin:$PATH"
 
 # Persistent Unique Hamster Identity placeholder (auto-populated on first run or clone)
-HAMSTER_ID="hamster-f6b5941e"
+HAMSTER_ID="HAMSTER_ID_PLACEHOLDER"
 
 # Canonical path to this script and its containing Hamster folder
 SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"

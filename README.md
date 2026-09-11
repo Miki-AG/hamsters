@@ -16,12 +16,21 @@ Requires macOS 12+ and an installed, authenticated Gemini (`agy` or `gemini`), C
 
 ## Get started
 
-1. Double-click [`main.colony/hamster-founder/hamster.command`](main.colony/hamster-founder/hamster.command).
-2. In **Settings**, choose your AI backend. Add `.md` prompt files to `instructions/`, `.md` skill files to `skills/`, and executable `.sh` tool files to `tools/`. Hamster loads the prompts and makes the skills and tools available to the agent.
-3. Click **Start Hamster** and drop files into `input/`.
-4. Collect the results from `output/`.
+Clone the repository:
 
-Hamster processes one file at a time and removes successfully processed inputs. Keep a copy of any originals you need. You can change both folder paths in Settings.
+```sh
+git clone https://github.com/Miki-AG/hamsters.git
+cd hamsters
+```
+
+The repo comes with a working travel-agent example (`main.colony/hamster-founder`). Its `instructions/prompt.md` defines the job, `skills/` contains procedures for destination research, activity matching, and email composition, and `tools/render/` contains the template renderer. It also comes with in input file sample.
+
+1. Double-click [`main.colony/hamster-founder/hamster.command`](main.colony/hamster-founder/hamster.command) to open the hamster UI.
+2. Click **Start Hamster** (the play button). The hamster will process the file and write a custom email.
+
+Drop any other customer and package brief into its `input/` folder; the hamster writes the finished email to `output/` automatically.
+
+Hamster processes one file at a time. Keep a copy of any originals you need. You can change both folder paths in Settings.
 
 Failed runs produce files with a timestamped `.error` suffix. Workers ignore these files, so errors do not pass down a chain.
 
